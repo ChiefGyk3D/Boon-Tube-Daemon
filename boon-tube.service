@@ -1,0 +1,55 @@
+# Boon-Tube-Daemon Systemd Service Template
+# 
+# Installation:
+# 1. Edit the paths and user in this file
+# 2. Copy to systemd directory:
+#    sudo cp boon-tube.service /etc/systemd/system/
+# 3. Reload systemd:
+#    sudo systemctl daemon-reload
+# 4. Enable service to start on boot:
+#    sudo systemctl enable boon-tube
+# 5. Start the service:
+#    sudo systemctl start boon-tube
+# 6. Check status:
+#    sudo systemctl status boon-tube
+# 7. View logs:
+#    journalctl -u boon-tube -f
+
+[Unit]
+Description=Boon-Tube-Daemon - Monitor TikTok and YouTube uploads
+Documentation=https://github.com/chiefgyk3d/Boon-Tube-Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Change these to match your installation
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/Boon-Tube-Daemon
+
+# If using virtual environment, use this:
+ExecStart=/home/YOUR_USERNAME/Boon-Tube-Daemon/venv/bin/python3 main.py
+
+# If using system Python, use this instead:
+# ExecStart=/usr/bin/python3 main.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security settings (optional but recommended)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/YOUR_USERNAME/Boon-Tube-Daemon
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=boon-tube
+
+[Install]
+WantedBy=multi-user.target

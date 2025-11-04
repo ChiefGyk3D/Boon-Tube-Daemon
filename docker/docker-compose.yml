@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  boon-tube-daemon:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: boon-tube-daemon
+    restart: unless-stopped
+    
+    # Mount config file
+    volumes:
+      - ./.env:/app/.env:ro
+      # Optional: Persist state/logs
+      - ./logs:/app/logs
+    
+    # Environment variables (alternative to .env)
+    environment:
+      # YouTube settings
+      - BOON_TUBE_YOUTUBE_ENABLE_MONITORING=true
+      - BOON_TUBE_YOUTUBE_USERNAME=
+      - BOON_TUBE_YOUTUBE_API_KEY=
+      
+      # TikTok settings
+      - BOON_TUBE_TIKTOK_ENABLE_MONITORING=true
+      - BOON_TUBE_TIKTOK_USERNAME=
+      
+      # Discord settings
+      - BOON_TUBE_DISCORD_ENABLE_POSTING=true
+      - BOON_TUBE_DISCORD_WEBHOOK_URL=
+      
+      # Check interval (seconds)
+      - BOON_TUBE_SETTINGS_CHECK_INTERVAL=300
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network mode
+    network_mode: bridge

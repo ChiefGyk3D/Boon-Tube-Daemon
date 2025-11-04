@@ -1,0 +1,23 @@
+# Docker ignore file - exclude from image build
+.git
+.gitignore
+*.md
+LICENSE
+CONTRIBUTING.md
+images/
+*.log
+logs/
+*.pyc
+__pycache__
+.pytest_cache
+venv/
+env/
+.venv/
+*.bak
+*.backup
+.env
+.env.local
+.env
+.DS_Store
+*.swp
+*.swo
