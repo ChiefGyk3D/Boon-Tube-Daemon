@@ -67,11 +67,18 @@ Boon-Tube-Daemon/
 - At least one social platform configured
 - (Optional) Gemini API key for AI features
 
-## License
+## Legal
 
+### License
 Mozilla Public License 2.0 - See [LICENSE](LICENSE)
 
 This project is licensed under the MPL-2.0, which allows you to use, modify, and distribute this software while requiring that modifications to MPL-licensed files remain open source.
+
+### Privacy & Terms
+- 📜 [Privacy Policy](PRIVACY_POLICY.md) - No data collection, self-hosted
+- 📋 [Terms of Service](TERMS_OF_SERVICE.md) - Open source, use at your own risk
+
+**Important:** You are responsible for complying with third-party service terms (YouTube, TikTok, Discord, etc.) when using this software.
 
 ---
 
