@@ -3,25 +3,20 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
-TikTok platform integration for detecting new video uploads.
+TikTok platform integration using Playwright network interception.
 
-Note: TikTok doesn't provide an official public API for monitoring uploads.
-This implementation uses the unofficial TikTokApi library which may break
-if TikTok changes their internal API.
-
-Alternative approaches:
-1. RSS feeds (if available for the user)
-2. Web scraping (less reliable)
-3. Official TikTok API (requires business account and approval)
+Monitors TikTok creators for new video uploads without requiring TikTokApi package.
+Uses browser automation to intercept API calls and extract video data.
 """
 
-import logging
-from datetime import datetime
-from typing import Optional, Tuple
-from TikTokApi import TikTokApi
 import asyncio
+import logging
+from typing import Optional, Tuple, Dict
+from datetime import datetime
 
-from boon_tube_daemon.utils.config import get_config, get_secret
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+
+from boon_tube_daemon.utils.config import get_config
 from boon_tube_daemon.media.base import MediaPlatform
 
 logger = logging.getLogger(__name__)
@@ -32,98 +27,139 @@ class TikTokPlatform(MediaPlatform):
     
     def __init__(self):
         super().__init__("TikTok")
-        self.api = None
         self.username = None
+        self.playwright_instance = None
+        self.browser = None
+        self.video_data = []
         self.last_video_id = None
         
     def authenticate(self) -> bool:
         """
-        Initialize TikTok API.
+        Initialize TikTok monitoring.
         
-        Note: TikTok unofficial API doesn't require authentication,
-        but may require playwright browser setup.
+        Returns:
+            True if authentication successful, False otherwise
         """
         try:
-            self.username = get_config('TikTok', 'username')
+            self.username = get_config("TikTok", "username")
             
             if not self.username:
                 logger.warning("✗ TikTok username not configured")
                 return False
             
-            # Initialize TikTok API (playwright will be installed via requirements.txt)
-            # Note: First run will download browser binaries
-            self.api = TikTokApi()
+            # Remove @ prefix if present
+            if self.username.startswith("@"):
+                self.username = self.username[1:]
             
             self.enabled = True
-            logger.info(f"✓ TikTok initialized for @{self.username}")
+            logger.info(f"✓ TikTok monitoring configured for @{self.username}")
             return True
             
         except Exception as e:
-            logger.error(f"✗ TikTok initialization failed: {e}")
-            logger.info("  Make sure playwright is installed: playwright install")
+            logger.error(f"✗ TikTok authentication failed: {e}")
             self.enabled = False
             return False
     
-    async def _get_latest_video_async(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    async def _ensure_browser(self):
+        """Launch browser if not already running."""
+        if not self.browser:
+            self.playwright_instance = await async_playwright().start()
+            self.browser = await self.playwright_instance.chromium.launch(headless=True)
+            logger.debug("Playwright browser launched")
+    
+    async def _cleanup_browser(self):
+        """Clean up browser resources."""
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+        if self.playwright_instance:
+            await self.playwright_instance.stop()
+            self.playwright_instance = None
+    
+    async def _get_latest_video_async(self, username: str) -> Optional[Dict]:
         """
         Get the latest video from a TikTok user (async).
         
         Args:
-            username: TikTok username (without @). If not provided, uses configured username.
+            username: TikTok username (without @)
             
         Returns:
-            Tuple of (success, video_data)
+            Dictionary with video info or None
         """
-        if not self.enabled or not self.api:
-            return False, None
-        
-        target_username = username or self.username
-        if not target_username:
-            logger.error("No TikTok username provided")
-            return False, None
-        
-        # Remove @ if present
-        target_username = target_username.lstrip('@')
+        self.video_data = []
+        await self._ensure_browser()
         
         try:
-            # Create async context
-            async with self.api:
-                # Get user object
-                user = self.api.user(target_username)
+            context = await self.browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            )
+            
+            page = await context.new_page()
+            
+            # Intercept API responses to capture video data
+            async def handle_response(response):
+                try:
+                    # Look for the repost/item_list API (contains video data)
+                    if "api/repost/item_list" in response.url or "api/post/item_list" in response.url:
+                        try:
+                            data = await response.json()
+                            if "itemList" in data and data["itemList"]:
+                                logger.debug(f"Found {len(data['itemList'])} videos in API response")
+                                self.video_data = data["itemList"]
+                        except:
+                            pass
+                except:
+                    pass
+            
+            page.on("response", handle_response)
+            
+            # Navigate to user profile
+            url = f"https://www.tiktok.com/@{username}"
+            logger.debug(f"Fetching TikTok videos for @{username}...")
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            
+            # Wait for API calls to complete
+            await page.wait_for_timeout(5000)
+            
+            await context.close()
+            
+            # Process collected video data
+            if self.video_data:
+                item = self.video_data[0]  # Get the latest video
+                author_id = item.get("author", {}).get("uniqueId", username)
+                video_id = item.get("id", "")
                 
-                # Get user's videos
-                videos = []
-                async for video in user.videos(count=5):  # Get last 5 videos
-                    videos.append(video)
-                
-                if not videos:
-                    logger.debug(f"No videos found for TikTok user: @{target_username}")
-                    return False, None
-                
-                # Get the most recent video
-                latest = videos[0]
-                
-                # Extract video data
-                video_data = {
-                    'video_id': latest.id,
-                    'title': latest.desc or 'No description',  # TikTok uses 'desc' for caption
-                    'url': f"https://www.tiktok.com/@{target_username}/video/{latest.id}",
-                    'thumbnail_url': latest.video.cover if hasattr(latest, 'video') else None,
-                    'published_at': datetime.fromtimestamp(latest.create_time) if hasattr(latest, 'create_time') else None,
-                    'description': latest.desc,
-                    'view_count': latest.stats.get('playCount') if hasattr(latest, 'stats') else None,
-                    'like_count': latest.stats.get('diggCount') if hasattr(latest, 'stats') else None,
-                    'comment_count': latest.stats.get('commentCount') if hasattr(latest, 'stats') else None,
-                    'share_count': latest.stats.get('shareCount') if hasattr(latest, 'stats') else None,
+                video_info = {
+                    "video_id": video_id,
+                    "title": item.get("desc", "")[:100],  # Use description as title
+                    "description": item.get("desc", ""),
+                    "url": f"https://www.tiktok.com/@{author_id}/video/{video_id}",
+                    "thumbnail_url": item.get("video", {}).get("cover", ""),
+                    "published_at": datetime.fromtimestamp(item.get("createTime", 0)),
+                    "author": author_id,
+                    "stats": {
+                        "plays": item.get("stats", {}).get("playCount", 0),
+                        "likes": item.get("stats", {}).get("diggCount", 0),
+                        "comments": item.get("stats", {}).get("commentCount", 0),
+                        "shares": item.get("stats", {}).get("shareCount", 0),
+                    }
                 }
                 
-                return True, video_data
-                
+                logger.debug(f"✓ Found latest video: {video_id}")
+                return video_info
+            
+            logger.warning(f"✗ No videos found for @{username}")
+            return None
+            
+        except PlaywrightTimeout:
+            logger.error(f"✗ Timeout loading TikTok page for @{username}")
+            return None
         except Exception as e:
-            logger.error(f"Error fetching TikTok videos for @{target_username}: {e}")
-            return False, None
+            logger.error(f"✗ Error fetching TikTok videos: {e}")
+            return None
     
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
         """
         Get the latest video from a TikTok user (sync wrapper).
         
@@ -133,123 +169,71 @@ class TikTokPlatform(MediaPlatform):
         Returns:
             Tuple of (success, video_data)
         """
+        target_username = username or self.username
+        if not target_username:
+            logger.error("No TikTok username provided or configured")
+            return False, None
+        
+        # Remove @ if present
+        if target_username.startswith("@"):
+            target_username = target_username[1:]
+        
         try:
             # Run async function in event loop
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If already in async context, create new loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            return loop.run_until_complete(self._get_latest_video_async(username))
-            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                video_data = loop.run_until_complete(self._get_latest_video_async(target_username))
+                if video_data:
+                    return True, video_data
+                return False, None
+            finally:
+                loop.close()
         except Exception as e:
-            logger.error(f"Error in TikTok sync wrapper: {e}")
+            logger.error(f"Error in get_latest_video: {e}")
             return False, None
     
-    def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
         """
-        Check if there's a new video since last check.
+        Check if there's a new video since the last check.
         
         Args:
-            username: TikTok username to check
+            username: TikTok username (without @). If not provided, uses configured username.
             
         Returns:
-            Tuple of (is_new, video_data) - is_new is True only if video is newer than last check
+            Tuple of (is_new, video_data)
         """
         success, video_data = self.get_latest_video(username)
         
         if not success or not video_data:
             return False, None
         
-        current_video_id = video_data.get('video_id')
+        video_id = video_data.get("video_id")
+        
+        # If we have no last_video_id, this is the first check
+        if not self.last_video_id:
+            logger.info(f"First check for @{self.username}, storing video ID: {video_id}")
+            self.last_video_id = video_id
+            return False, video_data  # Not "new" on first check
         
         # Check if this is a new video
-        if self.last_video_id is None:
-            # First run - don't notify, just track
-            logger.info(f"📹 TikTok: Initialized tracking for @{username or self.username}")
-            self.last_video_id = current_video_id
-            return False, None
-        
-        if current_video_id != self.last_video_id:
-            # New video detected!
-            logger.info(f"🎬 TikTok: New video from @{username or self.username}: {video_data.get('title')[:50]}...")
-            self.last_video_id = current_video_id
+        if video_id != self.last_video_id:
+            logger.info(f"  Previous ID: {self.last_video_id}")
+            logger.info(f"  New ID: {video_id}")
+            self.last_video_id = video_id
             return True, video_data
         
-        # Same video as before
+        logger.debug(f"No new video for @{self.username}")
         return False, None
-
-
-# Alternative implementation using web scraping (more reliable but less data)
-class TikTokScraperPlatform(MediaPlatform):
-    """
-    Alternative TikTok implementation using web scraping.
-    More reliable but provides less data and may be blocked.
-    """
     
-    def __init__(self):
-        super().__init__("TikTok-Scraper")
-        self.username = None
-        self.last_video_id = None
-        self.session = None
-        
-    def authenticate(self) -> bool:
-        """Initialize web scraper."""
+    def cleanup(self):
+        """Clean up resources (sync wrapper)."""
         try:
-            import requests
-            
-            self.username = get_config('TikTok', 'username')
-            if not self.username:
-                logger.warning("✗ TikTok username not configured")
-                return False
-            
-            self.session = requests.Session()
-            self.session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            })
-            
-            self.enabled = True
-            logger.info(f"✓ TikTok scraper initialized for @{self.username}")
-            return True
-            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(self._cleanup_browser())
+            finally:
+                loop.close()
         except Exception as e:
-            logger.error(f"✗ TikTok scraper initialization failed: {e}")
-            return False
-    
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Scrape latest video from TikTok profile page.
-        
-        Note: This is a simplified implementation. TikTok's page structure
-        may change and break this scraper.
-        """
-        if not self.enabled or not self.session:
-            return False, None
-        
-        target_username = username or self.username
-        if not target_username:
-            return False, None
-        
-        target_username = target_username.lstrip('@')
-        
-        try:
-            # Try to fetch user's profile page
-            url = f"https://www.tiktok.com/@{target_username}"
-            response = self.session.get(url, timeout=10)
-            
-            if response.status_code != 200:
-                logger.error(f"TikTok profile fetch failed: HTTP {response.status_code}")
-                return False, None
-            
-            # Parse HTML to extract video data
-            # This is a placeholder - actual implementation would need to parse
-            # JavaScript or use an HTML parser like BeautifulSoup
-            # TikTok renders content with JavaScript, making scraping difficult
-            
-            logger.warning("TikTok scraper needs implementation - use TikTokApi instead")
-            return False, None
-            
-        except Exception as e:
-            logger.error(f"Error scraping TikTok: {e}")
-            return False, None
+            logger.error(f"Error during cleanup: {e}")
