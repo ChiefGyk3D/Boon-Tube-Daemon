@@ -126,99 +126,110 @@ def get_int_config(section: str, key: str, default: int = 0) -> int:
         return default
 
 
-def get_secret(section: str, key: str, 
-               secret_name_env: Optional[str] = None,
-               secret_path_env: Optional[str] = None,
-               doppler_secret_env: Optional[str] = None,
-               default: Optional[str] = None) -> Optional[str]:
+def get_secret(section: str, key: str, default: Optional[str] = None) -> Optional[str]:
     """
-    Get secret value with support for multiple secret backends.
+    Get secret value with automatic secret manager detection.
     
     Priority order:
-    1. Doppler (if DOPPLER_TOKEN or doppler_secret_env provided)
-    2. AWS Secrets Manager (if secret_name_env provided)
-    3. HashiCorp Vault (if secret_path_env provided)
-    4. Direct environment variable (SECTION_KEY)
+    1. Doppler (if DOPPLER_TOKEN is set)
+    2. AWS Secrets Manager (if SECRETS_AWS_ENABLED=true)
+    3. HashiCorp Vault (if SECRETS_VAULT_ENABLED=true)
+    4. Environment variable (SECTION_KEY)
     5. .env file fallback
     6. Default value
     
+    All secret names use the same format: SECTION_KEY (e.g., YOUTUBE_API_KEY)
+    
     Args:
-        section: Configuration section
-        key: Configuration key
-        secret_name_env: Environment variable containing AWS secret name
-        secret_path_env: Environment variable containing Vault secret path
-        doppler_secret_env: Environment variable containing Doppler secret name
+        section: Configuration section (e.g., 'YouTube', 'Discord')
+        key: Configuration key (e.g., 'api_key', 'webhook_url')
         default: Default value if secret not found
         
     Returns:
         Secret value or default
-    """
-    # Try Doppler first (highest priority if DOPPLER_TOKEN is set)
-    if os.getenv('DOPPLER_TOKEN'):
-        # When running under Doppler CLI, secrets are injected as env vars
-        # First try the doppler_secret_env mapping
-        if doppler_secret_env:
-            doppler_secret = os.getenv(doppler_secret_env)
-            if doppler_secret:
-                value = os.getenv(doppler_secret)
-                if value:
-                    logger.debug(f"✓ Retrieved {section}.{key} from Doppler (via {doppler_secret})")
-                    return value
         
-        # Try direct SECTION_KEY format (Doppler's standard injection)
-        env_var = f"{section}_{key}".upper()
+    Example:
+        api_key = get_secret('YouTube', 'api_key')
+        # Tries: Doppler -> AWS -> Vault -> YOUTUBE_API_KEY env var -> .env -> None
+    """
+    env_var = f"{section}_{key}".upper()
+    
+    # 1. Try Doppler first (if DOPPLER_TOKEN is set, Doppler injects all secrets as env vars)
+    if os.getenv('DOPPLER_TOKEN'):
         value = os.getenv(env_var)
         if value:
-            logger.debug(f"✓ Retrieved {section}.{key} from Doppler (direct)")
+            logger.debug(f"✓ Retrieved {section}.{key} from Doppler")
             return value
     
-    # Try AWS Secrets Manager
-    if secret_name_env:
-        secret_name = os.getenv(secret_name_env)
-        if secret_name:
-            try:
-                import boto3
-                import json
-                
-                client = boto3.client('secretsmanager')
-                response = client.get_secret_value(SecretId=secret_name)
-                
-                if 'SecretString' in response:
-                    secret_dict = json.loads(response['SecretString'])
-                    if key in secret_dict:
-                        logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
-                        return secret_dict[key]
-            except ImportError:
-                logger.debug(f"boto3 not installed, skipping AWS Secrets Manager")
-            except Exception as e:
-                logger.debug(f"AWS Secrets Manager lookup failed: {e}")
+    # 2. Try AWS Secrets Manager (if enabled)
+    if get_bool_config('Secrets', 'aws_enabled', default=False):
+        try:
+            import boto3
+            import json
+            
+            # Get the secret name for this section (e.g., boon-tube/youtube, boon-tube/discord)
+            secret_name = get_config('Secrets', 'aws_secret_name', default='boon-tube')
+            
+            client = boto3.client('secretsmanager')
+            response = client.get_secret_value(SecretId=f"{secret_name}/{section.lower()}")
+            
+            if 'SecretString' in response:
+                secret_dict = json.loads(response['SecretString'])
+                # Try exact key match first
+                if key in secret_dict:
+                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                    return secret_dict[key]
+                # Try uppercase key (for consistency)
+                if key.upper() in secret_dict:
+                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                    return secret_dict[key.upper()]
+                # Try the full env var name
+                if env_var in secret_dict:
+                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                    return secret_dict[env_var]
+        except ImportError:
+            logger.debug("boto3 not installed, skipping AWS Secrets Manager")
+        except Exception as e:
+            logger.debug(f"AWS Secrets Manager lookup failed: {e}")
     
-    # Try HashiCorp Vault
-    if secret_path_env:
-        secret_path = os.getenv(secret_path_env)
-        if secret_path:
-            try:
-                import hvac
+    # 3. Try HashiCorp Vault (if enabled)
+    if get_bool_config('Secrets', 'vault_enabled', default=False):
+        try:
+            import hvac
+            
+            vault_addr = get_config('Secrets', 'vault_url')
+            vault_token = get_config('Secrets', 'vault_token')
+            vault_path = get_config('Secrets', 'vault_path', default='secret/boon-tube')
+            
+            if vault_addr and vault_token:
+                client = hvac.Client(url=vault_addr, token=vault_token)
+                # Read from path like: secret/boon-tube/youtube
+                secret = client.secrets.kv.v2.read_secret_version(
+                    path=f"{vault_path}/{section.lower()}"
+                )
                 
-                vault_addr = os.getenv('VAULT_ADDR', os.getenv('SECRETS_VAULT_URL'))
-                vault_token = os.getenv('VAULT_TOKEN', os.getenv('SECRETS_VAULT_TOKEN'))
-                
-                if vault_addr and vault_token:
-                    client = hvac.Client(url=vault_addr, token=vault_token)
-                    secret = client.secrets.kv.v2.read_secret_version(path=secret_path)
-                    
-                    if key in secret['data']['data']:
-                        logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
-                        return secret['data']['data'][key]
-            except ImportError:
-                logger.debug(f"hvac not installed, skipping HashiCorp Vault")
-            except Exception as e:
-                logger.debug(f"Vault lookup failed: {e}")
+                data = secret['data']['data']
+                # Try exact key match first
+                if key in data:
+                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                    return data[key]
+                # Try uppercase key
+                if key.upper() in data:
+                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                    return data[key.upper()]
+                # Try the full env var name
+                if env_var in data:
+                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                    return data[env_var]
+        except ImportError:
+            logger.debug("hvac not installed, skipping HashiCorp Vault")
+        except Exception as e:
+            logger.debug(f"Vault lookup failed: {e}")
     
-    # Fallback to direct environment variable or .env file
+    # 4. Fallback to environment variable or .env file
     value = get_config(section, key, default=default)
     if value:
-        logger.debug(f"✓ Retrieved {section}.{key} from environment/.env (fallback)")
+        logger.debug(f"✓ Retrieved {section}.{key} from environment/.env")
         return value
     
     logger.debug(f"Secret not found: {section}.{key}")

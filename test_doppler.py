@@ -91,18 +91,15 @@ def test_secret_loading():
         print("⚠ No .env file found (will rely on Doppler or env vars)")
     
     test_secrets = [
-        ('YouTube', 'api_key', 'SECRETS_DOPPLER_YOUTUBE_SECRET_NAME'),
-        ('TikTok', 'username', None),
-        ('Discord', 'webhook_url', 'SECRETS_DOPPLER_DISCORD_SECRET_NAME'),
-        ('Gemini', 'api_key', 'SECRETS_DOPPLER_LLM_SECRET_NAME'),
+        ('YouTube', 'api_key'),
+        ('TikTok', 'username'),
+        ('Discord', 'webhook_url'),
+        ('LLM', 'gemini_api_key'),
     ]
     
     print("\nTesting secret retrieval:")
-    for section, key, doppler_env in test_secrets:
-        if doppler_env:
-            value = get_secret(section, key, doppler_secret_env=doppler_env)
-        else:
-            value = get_secret(section, key)
+    for section, key in test_secrets:
+        value = get_secret(section, key)
         
         if value:
             # Mask the secret

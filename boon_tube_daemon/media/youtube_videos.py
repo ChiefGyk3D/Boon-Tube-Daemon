@@ -38,10 +38,7 @@ class YouTubeVideosPlatform(MediaPlatform):
     def authenticate(self) -> bool:
         """Authenticate with YouTube API."""
         try:
-            api_key = get_secret('YouTube', 'api_key',
-                                secret_name_env='SECRETS_AWS_YOUTUBE_SECRET_NAME',
-                                secret_path_env='SECRETS_VAULT_YOUTUBE_SECRET_PATH',
-                                doppler_secret_env='SECRETS_DOPPLER_YOUTUBE_SECRET_NAME')
+            api_key = get_secret('YouTube', 'api_key')
             self.username = get_config('YouTube', 'username')
             self.channel_id = get_config('YouTube', 'channel_id')
             

@@ -57,17 +57,11 @@ class DiscordPlatform:
             return False
         
         # Get default webhook URL
-        self.webhook_url = get_secret('Discord', 'webhook_url',
-                                      secret_name_env='SECRETS_AWS_DISCORD_SECRET_NAME',
-                                      secret_path_env='SECRETS_VAULT_DISCORD_SECRET_PATH',
-                                      doppler_secret_env='SECRETS_DOPPLER_DISCORD_SECRET_NAME')
+        self.webhook_url = get_secret('Discord', 'webhook_url')
         
         # Get per-platform webhook URLs (optional - overrides default)
         for platform in ['twitch', 'youtube', 'kick']:
-            platform_webhook = get_secret('Discord', f'webhook_{platform}',
-                                         secret_name_env='SECRETS_AWS_DISCORD_SECRET_NAME',
-                                         secret_path_env='SECRETS_VAULT_DISCORD_SECRET_PATH',
-                                         doppler_secret_env='SECRETS_DOPPLER_DISCORD_SECRET_NAME')
+            platform_webhook = get_secret('Discord', f'webhook_{platform}')
             if platform_webhook:
                 self.webhook_urls[platform] = platform_webhook
                 logger.info(f"  • Discord webhook configured for {platform.upper()}")
@@ -77,17 +71,11 @@ class DiscordPlatform:
             return False
         
         # Get default role ID (optional)
-        self.role_id = get_secret('Discord', 'role',
-                                 secret_name_env='SECRETS_AWS_DISCORD_SECRET_NAME',
-                                 secret_path_env='SECRETS_VAULT_DISCORD_SECRET_PATH',
-                                 doppler_secret_env='SECRETS_DOPPLER_DISCORD_SECRET_NAME')
+        self.role_id = get_secret('Discord', 'role')
         
         # Get per-platform role IDs (optional - overrides default)
         for platform in ['twitch', 'youtube', 'kick']:
-            platform_role = get_secret('Discord', f'role_{platform}',
-                                      secret_name_env='SECRETS_AWS_DISCORD_SECRET_NAME',
-                                      secret_path_env='SECRETS_VAULT_DISCORD_SECRET_PATH',
-                                      doppler_secret_env='SECRETS_DOPPLER_DISCORD_SECRET_NAME')
+            platform_role = get_secret('Discord', f'role_{platform}')
             if platform_role:
                 self.role_mentions[platform] = platform_role
                 logger.info(f"  • Discord role configured for {platform.upper()}")

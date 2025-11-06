@@ -51,10 +51,7 @@ class BlueskyPlatform:
             return False
             
         handle = get_config('Bluesky', 'handle')
-        app_password = get_secret('Bluesky', 'app_password',
-                                  secret_name_env='SECRETS_AWS_BLUESKY_SECRET_NAME',
-                                  secret_path_env='SECRETS_VAULT_BLUESKY_SECRET_PATH',
-                                  doppler_secret_env='SECRETS_DOPPLER_BLUESKY_SECRET_NAME')
+        app_password = get_secret('Bluesky', 'app_password')
         
         if not all([handle, app_password]):
             return False

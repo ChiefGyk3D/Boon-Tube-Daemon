@@ -50,10 +50,7 @@ class GeminiLLM:
                 return False
             
             # Get API key
-            self.api_key = get_secret('LLM', 'gemini_api_key',
-                                     secret_name_env='SECRETS_AWS_LLM_SECRET_NAME',
-                                     secret_path_env='SECRETS_VAULT_LLM_SECRET_PATH',
-                                     doppler_secret_env='SECRETS_DOPPLER_LLM_SECRET_NAME')
+            self.api_key = get_secret('LLM', 'gemini_api_key')
             
             if not self.api_key:
                 logger.warning("✗ Gemini API key not found")

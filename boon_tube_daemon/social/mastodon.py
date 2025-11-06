@@ -51,18 +51,9 @@ class MastodonPlatform(SocialPlatform):
         if not get_bool_config('Mastodon', 'enable_posting', default=False):
             return False
             
-        client_id = get_secret('Mastodon', 'client_id',
-                              secret_name_env='SECRETS_AWS_MASTODON_SECRET_NAME',
-                              secret_path_env='SECRETS_VAULT_MASTODON_SECRET_PATH',
-                              doppler_secret_env='SECRETS_DOPPLER_MASTODON_SECRET_NAME')
-        client_secret = get_secret('Mastodon', 'client_secret',
-                                   secret_name_env='SECRETS_AWS_MASTODON_SECRET_NAME',
-                                   secret_path_env='SECRETS_VAULT_MASTODON_SECRET_PATH',
-                                   doppler_secret_env='SECRETS_DOPPLER_MASTODON_SECRET_NAME')
-        access_token = get_secret('Mastodon', 'access_token',
-                                  secret_name_env='SECRETS_AWS_MASTODON_SECRET_NAME',
-                                  secret_path_env='SECRETS_VAULT_MASTODON_SECRET_PATH',
-                                  doppler_secret_env='SECRETS_DOPPLER_MASTODON_SECRET_NAME')
+        client_id = get_secret('Mastodon', 'client_id')
+        client_secret = get_secret('Mastodon', 'client_secret')
+        access_token = get_secret('Mastodon', 'access_token')
         api_base_url = get_config('Mastodon', 'api_base_url')
         
         if not all([client_id, client_secret, access_token, api_base_url]):
