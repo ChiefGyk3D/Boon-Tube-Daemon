@@ -36,3 +36,9 @@ colorlog==6.10.1  # Colored console output
 
 # LLM Integration
 google-generativeai==0.8.5  # Google Gemini API
+
+# Secret Management (optional)
+# Doppler: Install CLI from https://docs.doppler.com/docs/install-cli
+doppler-sdk==1.3.0
+# AWS Secrets Manager: boto3>=1.28.0
+# HashiCorp Vault: hvac>=1.1.0

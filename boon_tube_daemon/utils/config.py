@@ -129,15 +129,18 @@ def get_int_config(section: str, key: str, default: int = 0) -> int:
 def get_secret(section: str, key: str, 
                secret_name_env: Optional[str] = None,
                secret_path_env: Optional[str] = None,
-               doppler_secret_env: Optional[str] = None) -> Optional[str]:
+               doppler_secret_env: Optional[str] = None,
+               default: Optional[str] = None) -> Optional[str]:
     """
     Get secret value with support for multiple secret backends.
     
     Priority order:
-    1. Direct environment variable (SECTION_KEY)
+    1. Doppler (if DOPPLER_TOKEN or doppler_secret_env provided)
     2. AWS Secrets Manager (if secret_name_env provided)
     3. HashiCorp Vault (if secret_path_env provided)
-    4. Doppler (if doppler_secret_env provided)
+    4. Direct environment variable (SECTION_KEY)
+    5. .env file fallback
+    6. Default value
     
     Args:
         section: Configuration section
@@ -145,14 +148,29 @@ def get_secret(section: str, key: str,
         secret_name_env: Environment variable containing AWS secret name
         secret_path_env: Environment variable containing Vault secret path
         doppler_secret_env: Environment variable containing Doppler secret name
+        default: Default value if secret not found
         
     Returns:
-        Secret value or None
+        Secret value or default
     """
-    # Try direct environment variable first
-    value = get_config(section, key)
-    if value:
-        return value
+    # Try Doppler first (highest priority if DOPPLER_TOKEN is set)
+    if os.getenv('DOPPLER_TOKEN'):
+        # When running under Doppler CLI, secrets are injected as env vars
+        # First try the doppler_secret_env mapping
+        if doppler_secret_env:
+            doppler_secret = os.getenv(doppler_secret_env)
+            if doppler_secret:
+                value = os.getenv(doppler_secret)
+                if value:
+                    logger.debug(f"✓ Retrieved {section}.{key} from Doppler (via {doppler_secret})")
+                    return value
+        
+        # Try direct SECTION_KEY format (Doppler's standard injection)
+        env_var = f"{section}_{key}".upper()
+        value = os.getenv(env_var)
+        if value:
+            logger.debug(f"✓ Retrieved {section}.{key} from Doppler (direct)")
+            return value
     
     # Try AWS Secrets Manager
     if secret_name_env:
@@ -168,8 +186,10 @@ def get_secret(section: str, key: str,
                 if 'SecretString' in response:
                     secret_dict = json.loads(response['SecretString'])
                     if key in secret_dict:
-                        logger.debug(f"Retrieved {section}.{key} from AWS Secrets Manager")
+                        logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return secret_dict[key]
+            except ImportError:
+                logger.debug(f"boto3 not installed, skipping AWS Secrets Manager")
             except Exception as e:
                 logger.debug(f"AWS Secrets Manager lookup failed: {e}")
     
@@ -180,28 +200,26 @@ def get_secret(section: str, key: str,
             try:
                 import hvac
                 
-                vault_addr = os.getenv('VAULT_ADDR')
-                vault_token = os.getenv('VAULT_TOKEN')
+                vault_addr = os.getenv('VAULT_ADDR', os.getenv('SECRETS_VAULT_URL'))
+                vault_token = os.getenv('VAULT_TOKEN', os.getenv('SECRETS_VAULT_TOKEN'))
                 
                 if vault_addr and vault_token:
                     client = hvac.Client(url=vault_addr, token=vault_token)
                     secret = client.secrets.kv.v2.read_secret_version(path=secret_path)
                     
                     if key in secret['data']['data']:
-                        logger.debug(f"Retrieved {section}.{key} from HashiCorp Vault")
+                        logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return secret['data']['data'][key]
+            except ImportError:
+                logger.debug(f"hvac not installed, skipping HashiCorp Vault")
             except Exception as e:
                 logger.debug(f"Vault lookup failed: {e}")
     
-    # Try Doppler
-    if doppler_secret_env:
-        doppler_secret = os.getenv(doppler_secret_env)
-        if doppler_secret:
-            # Doppler injects secrets as environment variables
-            value = os.getenv(doppler_secret)
-            if value:
-                logger.debug(f"Retrieved {section}.{key} from Doppler")
-                return value
+    # Fallback to direct environment variable or .env file
+    value = get_config(section, key, default=default)
+    if value:
+        logger.debug(f"✓ Retrieved {section}.{key} from environment/.env (fallback)")
+        return value
     
     logger.debug(f"Secret not found: {section}.{key}")
-    return None
+    return default
