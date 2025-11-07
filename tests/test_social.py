@@ -125,8 +125,12 @@ If you see this, the integration is working! ✨"""
         print(f"   ✓ Post created successfully")
         print(f"   Post ID: {post_id}")
         if platform.client:
-            status = platform.client.status(post_id)
-            print(f"   View at: {status['url']}")
+            try:
+                status = platform.client.status(post_id)
+                print(f"   View at: {status['url']}")
+            except Exception as e:
+                # Some Mastodon instances restrict status fetching by scope
+                print(f"   Note: Could not fetch post URL (scope restriction): {e}")
         return True
     else:
         print("   ✗ Post failed")

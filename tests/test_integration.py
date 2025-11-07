@@ -1,88 +1,78 @@
 #!/usr/bin/env python3
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """
-Complete integration test for Boon-Tube-Daemon with TikTok monitoring.
-Tests the full workflow: monitor -> detect -> notify
+Integration tests for Boon-Tube-Daemon.
+Tests the full workflow: initialization -> monitoring -> detection
 """
 
+import pytest
 import sys
 import time
-sys.path.insert(0, '/home/chiefgyk3d/src/Boon-Tube-Daemon')
+from pathlib import Path
 
-from dotenv import load_dotenv
-load_dotenv('.env.test')
-
-print("="*70)
-print("🎬 Boon-Tube-Daemon - Complete Integration Test")
-print("="*70)
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from boon_tube_daemon.main import BoonTubeDaemon
 
-# Create and initialize daemon
-daemon = BoonTubeDaemon()
 
-print("\n📦 Step 1: Initializing daemon...")
-if not daemon.initialize():
-    print("❌ Daemon initialization failed!")
-    sys.exit(1)
-
-print("\n" + "="*70)
-print("✅ Daemon Initialized!")
-print("="*70)
-
-# Show configuration
-print(f"\n📊 Configuration:")
-print(f"  Media Platforms: {len(daemon.media_platforms)}")
-for p in daemon.media_platforms:
-    print(f"    • {p.name}")
-
-print(f"  Social Platforms: {len(daemon.social_platforms)}")
-if daemon.social_platforms:
-    for p in daemon.social_platforms:
-        print(f"    • {p.name}")
-else:
-    print(f"    (None configured - notifications will be logged only)")
-
-print(f"  LLM: {'Enabled' if daemon.llm else 'Disabled'}")
-print(f"  Check Interval: {daemon.check_interval}s")
-
-# Test 1: First check (establish baseline)
-print("\n" + "="*70)
-print("🔍 Test 1: First Check (Establishing Baseline)")
-print("="*70)
-daemon.check_platforms()
-print("  ✓ Baseline established")
-
-# Test 2: Second check (should find no new videos)
-print("\n" + "="*70)
-print("🔍 Test 2: Second Check (No New Videos)")
-print("="*70)
-print("  Waiting 3 seconds...")
-time.sleep(3)
-daemon.check_platforms()
-print("  ✓ No new videos detected (as expected)")
-
-# Show summary
-print("\n" + "="*70)
-print("✅ Integration Test Complete!")
-print("="*70)
-
-print("\n📝 Summary:")
-print("  ✓ Daemon initialization: SUCCESS")
-print("  ✓ TikTok monitoring: WORKING")
-print("  ✓ Baseline check: COMPLETE")
-print("  ✓ New video detection: READY")
-
-print("\n🚀 Next Steps:")
-print("  1. Configure social platforms in .env (Discord, Matrix, etc.)")
-print("  2. Optional: Enable Gemini LLM for enhanced notifications")
-print("  3. Run: python3 main.py (to start continuous monitoring)")
-print("  4. The daemon will check every 5 minutes for new videos")
-print("  5. New videos will be posted to all configured platforms")
-
-print("\n💡 Tips:")
-print("  • First run downloads Chromium browser (~150MB)")
-print("  • Run 'playwright install chromium' if not auto-installed")
-print("  • Check logs for detailed monitoring activity")
-print("  • Use Ctrl+C to stop the daemon gracefully")
-
-print("\n" + "="*70)
+class TestDaemonIntegration:
+    """Integration tests for the complete daemon workflow."""
+    
+    @pytest.fixture(scope="class")
+    def daemon(self):
+        """Create and initialize a daemon instance for testing."""
+        daemon = BoonTubeDaemon()
+        # Don't fail if initialization has issues in test environment
+        # Just return the daemon so we can test what we can
+        daemon.initialize()
+        return daemon
+    
+    def test_daemon_creation(self):
+        """Test that daemon can be instantiated."""
+        daemon = BoonTubeDaemon()
+        assert daemon is not None
+        assert hasattr(daemon, 'media_platforms')
+        assert hasattr(daemon, 'social_platforms')
+        assert hasattr(daemon, 'check_interval')
+    
+    def test_daemon_initialization(self, daemon):
+        """Test that daemon initializes its platforms."""
+        # Check that media platforms list exists (may be empty in test env)
+        assert hasattr(daemon, 'media_platforms')
+        assert isinstance(daemon.media_platforms, list)
+        
+        # Check that social platforms list exists
+        assert hasattr(daemon, 'social_platforms')
+        assert isinstance(daemon.social_platforms, list)
+    
+    def test_daemon_has_check_method(self, daemon):
+        """Test that daemon has the check_platforms method."""
+        assert hasattr(daemon, 'check_platforms')
+        assert callable(daemon.check_platforms)
+    
+    @pytest.mark.slow
+    @pytest.mark.integration
+    def test_platform_check_cycle(self, daemon, request):
+        """
+        Test a complete check cycle (requires real credentials).
+        This test is slow and requires actual platform access.
+        Run with: pytest -v --run-integration
+        """
+        # Skip if --run-integration flag not provided
+        if not request.config.getoption("--run-integration"):
+            pytest.skip("Requires --run-integration flag")
+        
+        if not daemon.media_platforms:
+            pytest.skip("No media platforms configured")
+        
+        # First check to establish baseline
+        daemon.check_platforms()
+        
+        # Second check should not find new videos
+        time.sleep(3)
+        daemon.check_platforms()

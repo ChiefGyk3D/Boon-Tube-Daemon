@@ -16,6 +16,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+import pytest
+
 from boon_tube_daemon.utils.config import load_config, get_config
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
 
@@ -27,6 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.youtube
 def test_youtube_authentication():
     """Test YouTube API authentication."""
     print("\n" + "="*70)
@@ -56,6 +59,8 @@ def test_youtube_authentication():
         return None
 
 
+@pytest.mark.youtube
+@pytest.mark.integration
 def test_get_latest_video(youtube):
     """Test getting the latest video."""
     print("\n" + "="*70)
@@ -92,6 +97,8 @@ def test_get_latest_video(youtube):
         return None
 
 
+@pytest.mark.youtube
+@pytest.mark.integration
 def test_new_video_detection(youtube):
     """Test new video detection mechanism."""
     print("\n" + "="*70)
@@ -129,6 +136,8 @@ def test_new_video_detection(youtube):
     print("  3. The new video should be detected on first check after upload")
 
 
+@pytest.mark.youtube
+@pytest.mark.integration
 def test_quota_management(youtube):
     """Test API quota management."""
     print("\n" + "="*70)
