@@ -60,7 +60,7 @@ class DiscordPlatform:
         self.webhook_url = get_secret('Discord', 'webhook_url')
         
         # Get per-platform webhook URLs (optional - overrides default)
-        for platform in ['twitch', 'youtube', 'kick']:
+        for platform in ['youtube', 'tiktok', 'twitch', 'kick']:
             platform_webhook = get_secret('Discord', f'webhook_{platform}')
             if platform_webhook:
                 self.webhook_urls[platform] = platform_webhook
@@ -74,7 +74,7 @@ class DiscordPlatform:
         self.role_id = get_secret('Discord', 'role')
         
         # Get per-platform role IDs (optional - overrides default)
-        for platform in ['twitch', 'youtube', 'kick']:
+        for platform in ['youtube', 'tiktok', 'twitch', 'kick']:
             platform_role = get_secret('Discord', f'role_{platform}')
             if platform_role:
                 self.role_mentions[platform] = platform_role
