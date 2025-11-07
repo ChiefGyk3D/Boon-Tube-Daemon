@@ -1,6 +1,6 @@
 #!/bin/bash
-# Stream Daemon - systemd Service Uninstallation Script
-# This script removes the Stream Daemon systemd service
+# Boon-Tube-Daemon - systemd Service Uninstallation Script
+# This script removes the Boon-Tube-Daemon systemd service
 
 set -e
 
@@ -16,15 +16,15 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-SERVICE_FILE="/etc/systemd/system/stream-daemon.service"
+SERVICE_FILE="/etc/systemd/system/boon-tube-daemon.service"
 
-echo -e "${YELLOW}Stream Daemon - systemd Service Uninstaller${NC}"
+echo -e "${YELLOW}Boon-Tube-Daemon - systemd Service Uninstaller${NC}"
 echo "============================================="
 echo ""
 
 # Check if service exists
 if [ ! -f "$SERVICE_FILE" ]; then
-    echo -e "${YELLOW}Service file not found. Stream Daemon may not be installed.${NC}"
+    echo -e "${YELLOW}Service file not found. Boon-Tube-Daemon may not be installed.${NC}"
     exit 0
 fi
 
@@ -40,13 +40,13 @@ fi
 # Extract project directory from service file
 PROJECT_DIR=$(grep "^WorkingDirectory=" "$SERVICE_FILE" 2>/dev/null | cut -d'=' -f2 || echo "")
 if [ -z "$PROJECT_DIR" ]; then
-    PROJECT_DIR="/opt/stream-daemon"  # Fallback default
+    PROJECT_DIR="/opt/boon-tube-daemon"  # Fallback default
 fi
 
 # Stop the service if running
-if systemctl is-active --quiet stream-daemon.service; then
-    echo "Stopping Stream Daemon service..."
-    systemctl stop stream-daemon.service
+if systemctl is-active --quiet boon-tube-daemon.service; then
+    echo "Stopping Boon-Tube-Daemon service..."
+    systemctl stop boon-tube-daemon.service
     echo -e "${GREEN}✓${NC} Service stopped"
 fi
 
@@ -54,32 +54,32 @@ fi
 if [ "$IS_DOCKER" = true ]; then
     if command -v docker &> /dev/null; then
         # Check if container exists
-        if docker ps -a --format '{{.Names}}' | grep -q '^stream-daemon$'; then
+        if docker ps -a --format '{{.Names}}' | grep -q '^boon-tube-daemon$'; then
             echo "Removing Docker container..."
-            docker rm -f stream-daemon 2>/dev/null || true
+            docker rm -f boon-tube-daemon 2>/dev/null || true
             echo -e "${GREEN}✓${NC} Docker container removed"
         fi
         
         # Ask about removing Docker image
-        if docker images --format "{{.Repository}}" | grep -q "^stream-daemon$"; then
-            IMAGE_SIZE=$(docker images --format "{{.Size}}" stream-daemon | head -n 1)
+        if docker images --format "{{.Repository}}" | grep -q "^boon-tube-daemon$"; then
+            IMAGE_SIZE=$(docker images --format "{{.Size}}" boon-tube-daemon | head -n 1)
             echo ""
-            read -p "Also remove Docker image 'stream-daemon' (${IMAGE_SIZE})? (y/N) " -n 1 -r
+            read -p "Also remove Docker image 'boon-tube-daemon' (${IMAGE_SIZE})? (y/N) " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                docker rmi stream-daemon 2>/dev/null || true
+                docker rmi boon-tube-daemon 2>/dev/null || true
                 echo -e "${GREEN}✓${NC} Docker image removed"
             else
-                echo -e "${YELLOW}ℹ${NC} Docker image kept (remove manually with: docker rmi stream-daemon)"
+                echo -e "${YELLOW}ℹ${NC} Docker image kept (remove manually with: docker rmi boon-tube-daemon)"
             fi
         fi
     fi
 fi
 
 # Disable the service
-if systemctl is-enabled --quiet stream-daemon.service 2>/dev/null; then
-    echo "Disabling Stream Daemon service..."
-    systemctl disable stream-daemon.service
+if systemctl is-enabled --quiet boon-tube-daemon.service 2>/dev/null; then
+    echo "Disabling Boon-Tube-Daemon service..."
+    systemctl disable boon-tube-daemon.service
     echo -e "${GREEN}✓${NC} Service disabled"
 fi
 
@@ -100,8 +100,8 @@ echo ""
 echo -e "${YELLOW}Note: This script does NOT automatically remove:${NC}"
 echo "  - The project directory and files"
 if [ "$IS_DOCKER" = true ]; then
-    if docker images --format "{{.Repository}}" | grep -q "^stream-daemon$"; then
-        echo "  - Docker image 'stream-daemon' (kept - remove with: docker rmi stream-daemon)"
+    if docker images --format "{{.Repository}}" | grep -q "^boon-tube-daemon$"; then
+        echo "  - Docker image 'boon-tube-daemon' (kept - remove with: docker rmi boon-tube-daemon)"
     fi
     echo "  - Other Docker resources (volumes, networks)"
 else
@@ -110,9 +110,9 @@ fi
 echo "  - Your .env configuration"
 echo "  - Message template files (messages.txt, end_messages.txt)"
 echo ""
-echo "To completely remove Stream Daemon:"
+echo "To completely remove Boon-Tube-Daemon:"
 if [ "$IS_DOCKER" = true ]; then
-    echo "  1. Remove Docker image: docker rmi stream-daemon"
+    echo "  1. Remove Docker image: docker rmi boon-tube-daemon"
     echo "  2. Clean Docker cache: docker system prune"
     echo "  3. Delete project directory: rm -rf $PROJECT_DIR"
 else

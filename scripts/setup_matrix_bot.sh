@@ -7,7 +7,7 @@
 set -e
 
 echo "=============================================="
-echo "  Matrix Bot Setup for Stream Daemon"
+echo "  Matrix Bot Setup for Boon-Tube-Daemon"
 echo "=============================================="
 echo ""
 

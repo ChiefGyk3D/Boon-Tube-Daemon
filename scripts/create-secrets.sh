@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stream Daemon - Secrets Management Setup Script
+# Boon-Tube-Daemon - Secrets Management Setup Script
 # This script helps create and configure secrets in Doppler, AWS Secrets Manager, or HashiCorp Vault
 
 set -e
@@ -20,7 +20,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 echo -e "${CYAN}"
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗
-║        Stream Daemon - Secrets Setup Wizard              ║
+║        Boon-Tube-Daemon - Secrets Setup Wizard              ║
 ║  Configure secrets for Doppler, AWS, or HashiCorp Vault  ║
 ╚═══════════════════════════════════════════════════════════╝
 EOF
@@ -253,7 +253,7 @@ else
 fi
 
 # Settings
-section_header "Stream Daemon Settings"
+section_header "Boon-Tube-Daemon Settings"
 
 prompt_with_default "Check interval when offline (minutes)" "${SETTINGS_CHECK_INTERVAL:-5}" "SETTINGS_CHECK_INTERVAL"
 prompt_with_default "Check interval when live (minutes)" "${SETTINGS_POST_INTERVAL:-60}" "SETTINGS_POST_INTERVAL"
@@ -303,7 +303,7 @@ create_doppler_secrets() {
     
     # Select or create project
     echo ""
-    prompt_with_default "Doppler Project Name" "stream-daemon" "DOPPLER_PROJECT"
+    prompt_with_default "Doppler Project Name" "boon-tube-daemon" "DOPPLER_PROJECT"
     prompt_with_default "Doppler Config (environment)" "dev" "DOPPLER_CONFIG"
     
     # Setup project
@@ -311,7 +311,7 @@ create_doppler_secrets() {
         echo -e "${GREEN}✓${NC} Project '$DOPPLER_PROJECT' exists"
     else
         echo "Creating project '$DOPPLER_PROJECT'..."
-        doppler projects create "$DOPPLER_PROJECT" --description "Stream Daemon secrets"
+        doppler projects create "$DOPPLER_PROJECT" --description "Boon-Tube-Daemon secrets"
         echo -e "${GREEN}✓${NC} Project created"
     fi
     
@@ -427,7 +427,7 @@ create_aws_secrets() {
     prompt_with_default "AWS Region" "${AWS_REGION:-us-east-1}" "AWS_REGION_CONFIG"
     
     # Create secrets
-    SECRET_PREFIX="stream-daemon"
+    SECRET_PREFIX="boon-tube-daemon"
     
     echo ""
     echo "Creating secrets in AWS Secrets Manager (SECRETS ONLY)..."
@@ -443,7 +443,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/twitch" \
-            --description "Twitch API credentials for Stream Daemon" \
+            --description "Twitch API credentials for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -463,7 +463,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/youtube" \
-            --description "YouTube API credentials for Stream Daemon" \
+            --description "YouTube API credentials for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -484,7 +484,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/kick" \
-            --description "Kick API credentials for Stream Daemon" \
+            --description "Kick API credentials for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -506,7 +506,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/mastodon" \
-            --description "Mastodon API credentials for Stream Daemon" \
+            --description "Mastodon API credentials for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -526,7 +526,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/bluesky" \
-            --description "Bluesky API credentials for Stream Daemon" \
+            --description "Bluesky API credentials for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -547,7 +547,7 @@ EOF
         
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/discord" \
-            --description "Discord webhooks for Stream Daemon" \
+            --description "Discord webhooks for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -567,7 +567,7 @@ EOF
         if [ "$SECRET_VALUE" != "{}" ]; then
             aws secretsmanager create-secret \
                 --name "${SECRET_PREFIX}/matrix" \
-                --description "Matrix credentials for Stream Daemon" \
+                --description "Matrix credentials for Boon-Tube-Daemon" \
                 --secret-string "$SECRET_VALUE" \
                 --region "$AWS_REGION_CONFIG" 2>/dev/null || \
             aws secretsmanager update-secret \
@@ -588,7 +588,7 @@ EOF
 )
         aws secretsmanager create-secret \
             --name "${SECRET_PREFIX}/llm" \
-            --description "LLM API keys for Stream Daemon" \
+            --description "LLM API keys for Boon-Tube-Daemon" \
             --secret-string "$SECRET_VALUE" \
             --region "$AWS_REGION_CONFIG" 2>/dev/null || \
         aws secretsmanager update-secret \
@@ -638,7 +638,7 @@ create_vault_secrets() {
     echo -e "${GREEN}✓${NC} Connected to Vault"
     
     # Create secrets
-    prompt_with_default "Vault secret path prefix" "secret/stream-daemon" "SECRET_PATH"
+    prompt_with_default "Vault secret path prefix" "secret/boon-tube-daemon" "SECRET_PATH"
     
     echo ""
     echo "Creating secrets in Vault (SECRETS ONLY)..."
@@ -731,7 +731,7 @@ create_env_config_only() {
     fi
     
     cat > "$ENV_FILE" << EOF
-# Stream Daemon Configuration
+# Boon-Tube-Daemon Configuration
 # Generated by create-secrets.sh on $(date)
 # Secrets stored in: $secrets_manager
 
@@ -762,7 +762,7 @@ EOF
             cat >> "$ENV_FILE" << EOF
 
 # Option 2: Run with Doppler CLI (recommended for development)
-# doppler run --project $DOPPLER_PROJECT_NAME --config $DOPPLER_CONFIG_NAME -- python stream-daemon.py
+# doppler run --project $DOPPLER_PROJECT_NAME --config $DOPPLER_CONFIG_NAME -- python boon-tube-daemon.py
 
 EOF
             ;;
@@ -914,7 +914,7 @@ EOF
     # Settings
     cat >> "$ENV_FILE" << EOF
 # ============================================
-# Stream Daemon Settings
+# Boon-Tube-Daemon Settings
 # ============================================
 
 SETTINGS_CHECK_INTERVAL=$SETTINGS_CHECK_INTERVAL
@@ -945,7 +945,7 @@ create_env_file_complete() {
     fi
     
     cat > "$ENV_FILE" << EOF
-# Stream Daemon Configuration
+# Boon-Tube-Daemon Configuration
 # Generated by create-secrets.sh on $(date)
 
 # ============================================
@@ -1155,19 +1155,19 @@ echo ""
 echo "Next steps:"
 echo ""
 echo "1. ${GREEN}Test your configuration:${NC}"
-echo "   python3 stream-daemon.py --test"
+echo "   python3 boon-tube-daemon.py --test"
 echo ""
-echo "2. ${GREEN}Run Stream Daemon:${NC}"
+echo "2. ${GREEN}Run Boon-Tube-Daemon:${NC}"
 
 case $MANAGER in
     doppler)
-        echo "   ${CYAN}Option 1:${NC} doppler run --project $DOPPLER_PROJECT_NAME --config $DOPPLER_CONFIG_NAME -- python3 stream-daemon.py"
+        echo "   ${CYAN}Option 1:${NC} doppler run --project $DOPPLER_PROJECT_NAME --config $DOPPLER_CONFIG_NAME -- python3 boon-tube-daemon.py"
         if [ -n "$DOPPLER_SERVICE_TOKEN" ]; then
-            echo "   ${CYAN}Option 2:${NC} python3 stream-daemon.py (uses DOPPLER_TOKEN from .env)"
+            echo "   ${CYAN}Option 2:${NC} python3 boon-tube-daemon.py (uses DOPPLER_TOKEN from .env)"
         fi
         ;;
     aws|vault|env)
-        echo "   python3 stream-daemon.py"
+        echo "   python3 boon-tube-daemon.py"
         ;;
 esac
 

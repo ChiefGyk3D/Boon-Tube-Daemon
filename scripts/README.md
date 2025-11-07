@@ -1,6 +1,6 @@
-# Stream Daemon Scripts
+# Boon-Tube-Daemon Scripts
 
-This directory contains utility scripts for Stream Daemon setup, configuration, and management.
+This directory contains utility scripts for Boon-Tube-Daemon setup, configuration, and management.
 
 ## 🔧 Installation & Setup
 
@@ -31,7 +31,7 @@ Helps you configure credentials across multiple secrets management platforms.
 ### install-systemd.sh
 **systemd service installation script**
 
-Installs Stream Daemon as a Linux systemd service with automatic startup.
+Installs Boon-Tube-Daemon as a Linux systemd service with automatic startup.
 
 **Usage:**
 ```bash
@@ -41,20 +41,33 @@ sudo ./scripts/install-systemd.sh
 **Features:**
 - ✅ Supports both Python and Docker deployments
 - ✅ Creates Python virtual environment (Python mode)
-- ✅ Builds and manages Docker containers (Docker mode)
+- ✅ Uses GHCR image or builds locally (Docker mode)
 - ✅ Configures automatic restart on failure
 - ✅ Sets up proper permissions and security
 - ✅ Loads configuration from .env file
+- ✅ Monitors YouTube uploads (not livestreams)
 
-**Documentation:**
-- [systemd Service Guide](../docs/getting-started/systemd-service.md)
+**Service Management:**
+```bash
+# Start the service
+sudo systemctl start boon-tube-daemon
+
+# Check status
+sudo systemctl status boon-tube-daemon
+
+# View logs
+sudo journalctl -u boon-tube-daemon -f
+
+# Stop the service
+sudo systemctl stop boon-tube-daemon
+```
 
 ---
 
 ### uninstall-systemd.sh
 **systemd service removal script**
 
-Removes the Stream Daemon systemd service and optionally cleans up Docker resources.
+Removes the Boon-Tube-Daemon systemd service and optionally cleans up Docker resources.
 
 **Usage:**
 ```bash
@@ -65,7 +78,7 @@ sudo ./scripts/uninstall-systemd.sh
 - ✅ Stops and disables service
 - ✅ Removes systemd service file
 - ✅ Cleans up Docker containers (Docker mode)
-- ✅ Optionally removes Docker images
+- ✅ Optionally removes Docker images (local or GHCR)
 - ✅ Preserves .env and project files by default
 
 ---

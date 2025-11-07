@@ -1,6 +1,6 @@
 #!/bin/bash
-# Stream Daemon - systemd Service Installation Script
-# This script installs Stream Daemon as a systemd service
+# Boon-Tube-Daemon - systemd Service Installation Script
+# This script installs Boon-Tube-Daemon as a systemd service
 
 set -e
 
@@ -25,16 +25,16 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ACTUAL_USER="${SUDO_USER:-$USER}"
 ACTUAL_HOME=$(eval echo ~$ACTUAL_USER)
 
-echo -e "${GREEN}Stream Daemon - systemd Service Installer${NC}"
+echo -e "${GREEN}Boon-Tube-Daemon - systemd Service Installer${NC}"
 echo "=========================================="
 echo ""
 echo "Project Directory: $PROJECT_DIR"
 echo "Running as user: $ACTUAL_USER"
 echo ""
 
-# Check if stream-daemon.py exists
-if [ ! -f "$PROJECT_DIR/stream-daemon.py" ]; then
-    echo -e "${RED}ERROR: stream-daemon.py not found in $PROJECT_DIR${NC}"
+# Check if main.py exists
+if [ ! -f "$PROJECT_DIR/main.py" ]; then
+    echo -e "${RED}ERROR: main.py not found in $PROJECT_DIR${NC}"
     exit 1
 fi
 
@@ -102,13 +102,13 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     echo -e "${GREEN}✓${NC} Dependencies installed"
 
     # Create systemd service file
-    SERVICE_FILE="/etc/systemd/system/stream-daemon.service"
+    SERVICE_FILE="/etc/systemd/system/boon-tube-daemon.service"
     echo ""
     echo "Creating systemd service file..."
 
     cat > "$SERVICE_FILE" << EOF
 [Unit]
-Description=Stream Daemon - Multi-platform Live Stream Monitor
+Description=Boon-Tube-Daemon - Multi-platform Live Stream Monitor
 After=network-online.target
 Wants=network-online.target
 
@@ -118,12 +118,12 @@ User=$ACTUAL_USER
 Group=$ACTUAL_USER
 WorkingDirectory=$PROJECT_DIR
 Environment="PATH=$PROJECT_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=$PROJECT_DIR/venv/bin/python $PROJECT_DIR/stream-daemon.py
+ExecStart=$PROJECT_DIR/venv/bin/python $PROJECT_DIR/main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=stream-daemon
+SyslogIdentifier=boon-tube-daemon
 
 # Security hardening
 NoNewPrivileges=true
@@ -184,7 +184,7 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
     fi
     
     # Check if Docker image exists or needs to be built
-    IMAGE_NAME="stream-daemon"
+    IMAGE_NAME="boon-tube-daemon"
     IMAGE_EXISTS=false
     
     # Check for existing image (improved detection)
@@ -224,13 +224,13 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
             # Pull from GitHub Container Registry
             echo "Pulling Docker image from GitHub Container Registry..."
             echo ""
-            GHCR_IMAGE="ghcr.io/chiefgyk3d/stream-daemon:latest"
+            GHCR_IMAGE="ghcr.io/chiefgyk3d/boon-tube-daemon:latest"
             
             if $DOCKER_CMD pull "$GHCR_IMAGE"; then
                 echo ""
                 echo -e "${GREEN}✓${NC} Image pulled successfully!"
                 
-                # Tag it as stream-daemon:latest for local use
+                # Tag it as boon-tube-daemon:latest for local use
                 $DOCKER_CMD tag "$GHCR_IMAGE" "$IMAGE_NAME:latest"
                 echo -e "${GREEN}✓${NC} Tagged as ${IMAGE_NAME}:latest"
                 
@@ -262,9 +262,9 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
         echo ""
         
         # Check if Dockerfile exists
-        if [ ! -f "$PROJECT_DIR/Docker/Dockerfile" ]; then
-            echo -e "${RED}ERROR: Docker/Dockerfile not found!${NC}"
-            echo -e "${YELLOW}Expected location: $PROJECT_DIR/Docker/Dockerfile${NC}"
+        if [ ! -f "$PROJECT_DIR/docker/Dockerfile" ]; then
+            echo -e "${RED}ERROR: docker/Dockerfile not found!${NC}"
+            echo -e "${YELLOW}Expected location: $PROJECT_DIR/docker/Dockerfile${NC}"
             exit 1
         fi
         
@@ -274,13 +274,13 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
         fi
         
         # Build the image
-        echo "Building from: $PROJECT_DIR/Docker/Dockerfile"
+        echo "Building from: $PROJECT_DIR/docker/Dockerfile"
         echo "Build context: $PROJECT_DIR"
         echo ""
         cd "$PROJECT_DIR"
         
         BUILD_OUTPUT=$(mktemp)
-        if $DOCKER_CMD build -t $IMAGE_NAME -f Docker/Dockerfile . 2>&1 | tee "$BUILD_OUTPUT"; then
+        if $DOCKER_CMD build -t $IMAGE_NAME -f docker/Dockerfile . 2>&1 | tee "$BUILD_OUTPUT"; then
             echo ""
             echo -e "${GREEN}✓${NC} Docker image built successfully!"
             
@@ -316,8 +316,8 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
             
             if grep -q "Dockerfile" "$BUILD_OUTPUT" && grep -q "not found" "$BUILD_OUTPUT"; then
                 echo -e "${RED}  • Dockerfile not found or invalid${NC}"
-                echo "    Solution: Verify Docker/Dockerfile exists and is readable"
-                echo "    Path: $PROJECT_DIR/Docker/Dockerfile"
+                echo "    Solution: Verify docker/Dockerfile exists and is readable"
+                echo "    Path: $PROJECT_DIR/docker/Dockerfile"
             fi
             
             if grep -q "requirements.txt" "$BUILD_OUTPUT"; then
@@ -330,9 +330,9 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
             echo -e "${YELLOW}Troubleshooting steps:${NC}"
             echo "  1. Check Docker is running: docker ps"
             echo "  2. Clean Docker cache: docker system prune -a"
-            echo "  3. Verify files exist: ls -la Docker/Dockerfile requirements.txt"
+            echo "  3. Verify files exist: ls -la docker/Dockerfile requirements.txt"
             echo "  4. Check build logs above for specific errors"
-            echo "  5. Try manual build: cd $PROJECT_DIR && docker build -t stream-daemon -f Docker/Dockerfile ."
+            echo "  5. Try manual build: cd $PROJECT_DIR && docker build -t boon-tube-daemon -f docker/Dockerfile ."
             echo ""
             
             rm -f "$BUILD_OUTPUT"
@@ -344,13 +344,13 @@ elif [ "$DEPLOYMENT_MODE" = "2" ]; then
     fi
     
     # Create systemd service file for Docker
-    SERVICE_FILE="/etc/systemd/system/stream-daemon.service"
+    SERVICE_FILE="/etc/systemd/system/boon-tube-daemon.service"
     echo ""
     echo "Creating systemd service file for Docker..."
 
     cat > "$SERVICE_FILE" << EOF
 [Unit]
-Description=Stream Daemon - Multi-platform Live Stream Monitor (Docker)
+Description=Boon-Tube-Daemon - Multi-platform Live Stream Monitor (Docker)
 After=docker.service network-online.target
 Requires=docker.service
 Wants=network-online.target
@@ -364,7 +364,7 @@ WorkingDirectory=$PROJECT_DIR
 
 # Start the Docker container
 ExecStart=/usr/bin/docker run -d \\
-    --name stream-daemon \\
+    --name boon-tube-daemon \\
     --restart unless-stopped \\
     --env-file $PROJECT_DIR/.env \\
     -v $PROJECT_DIR/messages.txt:/app/messages.txt:ro \\
@@ -372,12 +372,12 @@ ExecStart=/usr/bin/docker run -d \\
     $IMAGE_NAME
 
 # Stop and remove the container
-ExecStop=/usr/bin/docker stop stream-daemon
-ExecStopPost=/usr/bin/docker rm -f stream-daemon
+ExecStop=/usr/bin/docker stop boon-tube-daemon
+ExecStopPost=/usr/bin/docker rm -f boon-tube-daemon
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=stream-daemon
+SyslogIdentifier=boon-tube-daemon
 
 [Install]
 WantedBy=multi-user.target
@@ -395,24 +395,24 @@ echo -e "${GREEN}✓${NC} systemd reloaded"
 
 # Enable service
 echo ""
-read -p "Enable Stream Daemon to start on boot? (Y/n) " -n 1 -r
+read -p "Enable Boon-Tube-Daemon to start on boot? (Y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-    systemctl enable stream-daemon.service
+    systemctl enable boon-tube-daemon.service
     echo -e "${GREEN}✓${NC} Service enabled (will start on boot)"
 fi
 
 # Start service
 echo ""
-read -p "Start Stream Daemon now? (Y/n) " -n 1 -r
+read -p "Start Boon-Tube-Daemon now? (Y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-    systemctl start stream-daemon.service
+    systemctl start boon-tube-daemon.service
     sleep 2
-    if systemctl is-active --quiet stream-daemon.service; then
+    if systemctl is-active --quiet boon-tube-daemon.service; then
         echo -e "${GREEN}✓${NC} Service started successfully!"
     else
-        echo -e "${RED}✗${NC} Service failed to start. Check status with: sudo systemctl status stream-daemon"
+        echo -e "${RED}✗${NC} Service failed to start. Check status with: sudo systemctl status boon-tube-daemon"
     fi
 fi
 
@@ -420,11 +420,11 @@ echo ""
 echo -e "${GREEN}Installation complete!${NC}"
 echo ""
 echo "Service management commands:"
-echo "  Start:   sudo systemctl start stream-daemon"
-echo "  Stop:    sudo systemctl stop stream-daemon"
-echo "  Restart: sudo systemctl restart stream-daemon"
-echo "  Status:  sudo systemctl status stream-daemon"
-echo "  Logs:    sudo journalctl -u stream-daemon -f"
-echo "  Enable:  sudo systemctl enable stream-daemon"
-echo "  Disable: sudo systemctl disable stream-daemon"
+echo "  Start:   sudo systemctl start boon-tube-daemon"
+echo "  Stop:    sudo systemctl stop boon-tube-daemon"
+echo "  Restart: sudo systemctl restart boon-tube-daemon"
+echo "  Status:  sudo systemctl status boon-tube-daemon"
+echo "  Logs:    sudo journalctl -u boon-tube-daemon -f"
+echo "  Enable:  sudo systemctl enable boon-tube-daemon"
+echo "  Disable: sudo systemctl disable boon-tube-daemon"
 echo ""
