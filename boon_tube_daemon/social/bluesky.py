@@ -158,7 +158,7 @@ class BlueskyPlatform:
                         # Use stream_data for Twitch/YouTube if available (more reliable than scraping)
                         logger.info(f"ℹ Using stream metadata for embed")
                         
-                        title = stream_data.get('title', 'Live Stream')
+                        title = stream_data.get('title', 'Video')
                         thumbnail_url = stream_data.get('thumbnail_url')
                         
                         # Upload thumbnail to Bluesky if available
@@ -176,16 +176,23 @@ class BlueskyPlatform:
                             except Exception as img_error:
                                 logger.warning(f"⚠ Could not upload thumbnail: {img_error}")
                         
-                        # Create external embed with stream metadata (no viewer count to avoid showing 0 at start)
-                        game_name = stream_data.get('game_name', '')
-                        description = f"🔴 LIVE"
-                        if game_name:
-                            description += f" • {game_name}"
+                        # Check if it's actually a livestream or a video
+                        is_live = stream_data.get('is_live', False) or stream_data.get('viewer_count') is not None
+                        
+                        # Create description based on content type
+                        if is_live:
+                            game_name = stream_data.get('game_name', '')
+                            description = f"🔴 LIVE"
+                            if game_name:
+                                description += f" • {game_name}"
+                        else:
+                            # For videos, use the description or a simple label
+                            description = stream_data.get('description', 'New video')[:200] if stream_data.get('description') else 'New video'
                         
                         embed = models.AppBskyEmbedExternal.Main(
                             external=models.AppBskyEmbedExternal.External(
                                 uri=first_url,
-                                title=title[:300] if title else 'Live Stream',
+                                title=title[:300] if title else 'Video',
                                 description=description[:1000],
                                 thumb=thumb_blob if thumb_blob else None
                             )

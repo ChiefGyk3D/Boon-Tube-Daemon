@@ -149,24 +149,12 @@ class DiscordPlatform:
                 # Add fields - different for videos vs livestreams
                 fields = []
                 if is_video_upload:
-                    # For video uploads, show views/likes if available (not viewer count)
-                    view_count = stream_data.get('view_count')
-                    like_count = stream_data.get('like_count')
-                    
-                    if view_count is not None and str(view_count) != '0':
-                        fields.append({
-                            "name": "👀 Views",
-                            "value": f"{int(view_count):,}" if str(view_count).isdigit() else str(view_count),
-                            "inline": True
-                        })
-                    if like_count is not None and str(like_count) != '0':
-                        fields.append({
-                            "name": "👍 Likes",
-                            "value": f"{int(like_count):,}" if str(like_count).isdigit() else str(like_count),
-                            "inline": True
-                        })
+                    # For video uploads, don't show views/likes to save API quota
+                    # (those stats won't be updated after initial post anyway)
+                    # Could add video duration, upload date, or other static metadata if desired
+                    pass
                 else:
-                    # For livestreams, show viewer count and game
+                    # For livestreams, show viewer count and game (will be updated)
                     if viewer_count is not None:
                         fields.append({
                             "name": "👥 Viewers",

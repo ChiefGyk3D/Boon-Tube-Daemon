@@ -1,5 +1,5 @@
 # Boon-Tube-Daemon Docker Image
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Set working directory
 WORKDIR /app
@@ -57,7 +57,6 @@ RUN playwright install chromium
 # Copy application code
 COPY boon_tube_daemon/ /app/boon_tube_daemon/
 COPY main.py /app/
-COPY config.example.ini /app/
 
 # Create config directory
 RUN mkdir -p /app/config
@@ -65,9 +64,13 @@ RUN mkdir -p /app/config
 # Expose volume for configuration
 VOLUME ["/app/config"]
 
-# Set environment variable to use config from volume
-ENV CONFIG_PATH=/app/config/.env
+# Set environment variables
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Health check
+HEALTHCHECK --interval=5m --timeout=10s --start-period=30s --retries=3 \
+  CMD python -c "import boon_tube_daemon; print('OK')" || exit 1
 
 # Run the daemon
-CMD ["python", "main.py"]
+CMD ["python", "-u", "main.py"]

@@ -50,7 +50,7 @@ class BoonTubeDaemon:
         self.media_platforms: List = []
         self.social_platforms: List = []
         self.llm = None
-        self.check_interval = 300  # Default: 5 minutes
+        self.check_interval = 900  # Default: 15 minutes (optimized for video uploads, not livestreams)
         
     def initialize(self):
         """Initialize daemon and all platforms."""
@@ -71,8 +71,8 @@ class BoonTubeDaemon:
         load_config()
         
         # Get check interval
-        self.check_interval = get_int_config('Settings', 'check_interval', default=300)
-        logger.info(f"⏰ Check interval: {self.check_interval} seconds")
+        self.check_interval = get_int_config('Settings', 'check_interval', default=900)
+        logger.info(f"⏰ Check interval: {self.check_interval} seconds ({self.check_interval // 60} minutes)")
         
         # Initialize media platforms
         logger.info("\n📺 Initializing Media Platforms...")
@@ -169,13 +169,14 @@ class BoonTubeDaemon:
                 logger.info("   🚫 Skipped by LLM filter")
                 return
         
-        # Format message (with LLM enhancement if available)
-        message = self.format_notification(platform, video_data)
-        
-        # Post to all social platforms
+        # Post to all social platforms (each gets a unique message)
         for social in self.social_platforms:
             try:
                 logger.info(f"   📤 Posting to {social.name}...")
+                
+                # Generate platform-specific message
+                message = self.format_notification(platform, video_data, social.name)
+                
                 result = social.post(
                     message=message,
                     platform_name=platform.name.lower(),
@@ -188,13 +189,15 @@ class BoonTubeDaemon:
             except Exception as e:
                 logger.error(f"   ✗ Error posting to {social.name}: {e}")
     
-    def format_notification(self, platform, video_data: Dict) -> str:
+    def format_notification(self, platform, video_data: Dict, social_platform_name: str = None) -> str:
         """
         Format notification message for social platforms.
+        Each platform gets a unique, tailored message if LLM is enabled.
         
         Args:
-            platform: Media platform object
+            platform: Media platform object (YouTube, TikTok, etc.)
             video_data: Video information dict
+            social_platform_name: Target social platform name (Discord, Bluesky, etc.)
             
         Returns:
             Formatted message string
@@ -202,12 +205,17 @@ class BoonTubeDaemon:
         title = video_data.get('title', 'Untitled')
         url = video_data.get('url', '')
         
-        # Try LLM-enhanced notification first
+        # Try LLM-enhanced notification (platform-specific)
         if self.llm and self.llm.enabled and get_bool_config('LLM', 'enhance_notifications', default=False):
-            enhanced_message = self.llm.enhance_notification(video_data, platform.name)
-            if enhanced_message:
-                logger.info("   ✨ Using LLM-enhanced notification")
-                return enhanced_message
+            if social_platform_name:
+                enhanced_message = self.llm.enhance_notification(
+                    video_data, 
+                    platform.name,
+                    social_platform_name
+                )
+                if enhanced_message:
+                    logger.info(f"   ✨ Using LLM-enhanced {social_platform_name} post")
+                    return enhanced_message
         
         # Fall back to template-based notification
         template = get_config('Settings', 'notification_template', 

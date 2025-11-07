@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  boon-tube-daemon:
+    image: boon-tube-daemon:test
+    container_name: boon-tube-daemon
+    restart: unless-stopped
+    
+    # Mount .env file from host
+    env_file:
+      - .env
+    
+    # Mount config directory as volume (optional, for persistent state)
+    volumes:
+      - ./config:/app/config
+    
+    # Environment variables
+    environment:
+      - PYTHONUNBUFFERED=1
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import boon_tube_daemon; print('OK')"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

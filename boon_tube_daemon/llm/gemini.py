@@ -10,6 +10,7 @@ notifications using Google's Gemini AI model.
 """
 
 import logging
+import re
 from typing import Optional, Dict, Any
 import google.generativeai as genai
 
@@ -60,7 +61,7 @@ class GeminiLLM:
             genai.configure(api_key=self.api_key)
             
             # Initialize model
-            model_name = get_config('LLM', 'model', default='gemini-2.0-flash-exp')
+            model_name = get_config('LLM', 'model', default='gemini-2.5-flash-lite')
             self.model = genai.GenerativeModel(model_name)
             
             self.enabled = True
@@ -71,6 +72,63 @@ class GeminiLLM:
             logger.error(f"✗ Gemini LLM initialization failed: {e}")
             self.enabled = False
             return False
+    
+    def clean_description(self, description: str, max_length: int = 500) -> str:
+        """
+        Clean video description by removing URLs, sponsor links, social media handles,
+        tip jar links, and other promotional content.
+        
+        Args:
+            description: Raw video description
+            max_length: Maximum length to return
+            
+        Returns:
+            Cleaned description text
+        """
+        if not description:
+            return ""
+        
+        # Remove URLs (http/https)
+        cleaned = re.sub(r'https?://[^\s]+', '', description)
+        
+        # Remove social media handles (@username, @handle)
+        cleaned = re.sub(r'@\w+', '', cleaned)
+        
+        # Remove common sponsor/tip keywords and their surrounding text
+        sponsor_patterns = [
+            r'(?i)sponsor(?:ed|s)?\s*(?:by|:)?[^\n]*',
+            r'(?i)support\s+(?:me|us)\s+on[^\n]*',
+            r'(?i)patreon[^\n]*',
+            r'(?i)ko-fi[^\n]*',
+            r'(?i)buy\s+me\s+a\s+coffee[^\n]*',
+            r'(?i)tip\s+jar[^\n]*',
+            r'(?i)donate[^\n]*',
+            r'(?i)merch[^\n]*',
+            r'(?i)affiliate[^\n]*',
+            r'(?i)discord\s+server[^\n]*',
+            r'(?i)join\s+(?:my|our)\s+discord[^\n]*',
+        ]
+        
+        for pattern in sponsor_patterns:
+            cleaned = re.sub(pattern, '', cleaned)
+        
+        # Remove "Follow me on" type lines
+        cleaned = re.sub(r'(?i)follow\s+(?:me|us)\s+on[^\n]*', '', cleaned)
+        cleaned = re.sub(r'(?i)find\s+me\s+on[^\n]*', '', cleaned)
+        cleaned = re.sub(r'(?i)connect\s+with\s+me[^\n]*', '', cleaned)
+        
+        # Remove multiple newlines and excessive whitespace
+        cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', cleaned)
+        cleaned = re.sub(r'[ \t]+', ' ', cleaned)
+        
+        # Remove leading/trailing whitespace
+        cleaned = cleaned.strip()
+        
+        # Truncate to max length
+        if len(cleaned) > max_length:
+            cleaned = cleaned[:max_length].rsplit(' ', 1)[0] + "..."
+        
+        return cleaned
     
     def generate_summary(self, video_data: Dict[str, Any], max_length: int = 200) -> Optional[str]:
         """
@@ -146,13 +204,15 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             logger.error(f"Error generating hashtags: {e}")
             return None
     
-    def enhance_notification(self, video_data: Dict[str, Any], platform_name: str) -> Optional[str]:
+    def enhance_notification(self, video_data: Dict[str, Any], platform_name: str, social_platform: str) -> Optional[str]:
         """
-        Generate an enhanced notification message with AI.
+        Generate a platform-specific enhanced notification message with AI.
+        Each social platform gets a unique, tailored post.
         
         Args:
-            video_data: Video information dict
-            platform_name: Name of the video platform (YouTube, TikTok)
+            video_data: Video information dict (title, description, url, etc.)
+            platform_name: Source platform name (YouTube, TikTok, etc.)
+            social_platform: Target social platform (discord, matrix, bluesky, mastodon)
             
         Returns:
             Enhanced notification text or None on error
@@ -165,32 +225,152 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             description = video_data.get('description', '')
             url = video_data.get('url', '')
             
-            prompt = f"""Create an engaging social media notification for this new video. Make it exciting and clickable while being concise (under 280 characters).
+            # Clean description to remove sponsor links, URLs, etc.
+            cleaned_desc = self.clean_description(description, max_length=400)
+            
+            # Get platform-specific posting style from config
+            social_platform_lower = social_platform.lower()
+            style_key = f"{social_platform_lower.title()}_post_style"
+            
+            # Default styles per platform
+            default_styles = {
+                'discord': 'conversational',
+                'matrix': 'professional',
+                'bluesky': 'conversational',
+                'mastodon': 'detailed'
+            }
+            
+            post_style = get_config(
+                social_platform.title(),
+                'post_style',
+                default=default_styles.get(social_platform_lower, 'conversational')
+            ).lower()
+            
+            # Style-specific instructions
+            style_instructions = {
+                'professional': "Use a formal, clear, business-like tone. Be informative and direct.",
+                'conversational': "Use a casual, friendly, community-focused tone. Be warm and approachable.",
+                'detailed': "Provide comprehensive context and explanation. Be thorough and informative.",
+                'concise': "Be brief and to-the-point. Use minimal text while staying engaging."
+            }
+            
+            style_instruction = style_instructions.get(post_style, style_instructions['conversational'])
+            
+            # Platform-specific prompts
+            if social_platform_lower == 'discord':
+                prompt = f"""Create an engaging Discord announcement for this new {platform_name} video.
 
-Platform: {platform_name}
 Title: {title}
-Description: {description[:300]}
+Description: {cleaned_desc}
 
-Include:
-- An attention-grabbing emoji
-- Brief description of what the video is about
-- A call to action
-- The URL on a new line
+Style: {post_style}
+{style_instruction}
 
-Format as plain text suitable for social media."""
+Discord-specific guidelines:
+- NO hashtags (Discord doesn't use them)
+- NO platform greetings like "Hey Discord!" or "Hello everyone!" - just get to the content
+- NO placeholder URLs like "[YouTube Link]" or "youtu.be/your_youtube_link_here" - the actual URL will be added automatically
+- End with an invitation to watch/discuss
+- Keep it under 300 characters (URL will be added separately)
+
+Write the announcement now WITHOUT including any URLs:"""
+
+            elif social_platform_lower == 'matrix':
+                prompt = f"""Create a Matrix/Element announcement for this new {platform_name} video.
+
+Title: {title}
+Description: {cleaned_desc}
+
+Style: {post_style}
+{style_instruction}
+
+Matrix-specific guidelines:
+- NO hashtags (Matrix doesn't use them)
+- NO platform greetings like "Hey Matrix!" - just get to the content
+- NO placeholder URLs like "[VIDEO_ID]" or "youtube.com/watch?v=[VIDEO_ID]" - the actual URL will be added automatically
+- Focus on the content value
+- Keep it under 350 characters (URL will be added separately)
+
+Write the announcement now WITHOUT including any URLs:"""
+
+            elif social_platform_lower == 'bluesky':
+                prompt = f"""Create an engaging Bluesky post for this new {platform_name} video.
+
+Title: {title}
+Description: {cleaned_desc}
+
+Style: {post_style}
+{style_instruction}
+
+Bluesky-specific guidelines:
+- CRITICAL: ABSOLUTE MAXIMUM 300 characters TOTAL (Bluesky will reject anything longer)
+- Count EVERY character including spaces, emojis, URL, and hashtags
+- NO platform greetings like "Hey Bluesky!" - wastes precious characters
+- NO meta text like "Here's a post:" or "Bluesky draft:" - just write the actual post
+- NO placeholder URLs like "youtube.com/watch/example" or "[YouTube Link]" - the actual URL will be added automatically
+- Include 2-3 SHORT hashtags (#Linux not #LinuxForBeginners)
+- Put hashtags at the end
+- Keep main text to ~250 chars to leave room for hashtags
+
+Write ONLY the post content WITHOUT any URLs (must be under 300 chars total):"""
+
+            elif social_platform_lower == 'mastodon':
+                prompt = f"""Create an engaging Mastodon toot for this new {platform_name} video.
+
+Title: {title}
+Description: {cleaned_desc}
+
+Style: {post_style}
+{style_instruction}
+
+Mastodon-specific guidelines:
+- CRITICAL: ABSOLUTE MAXIMUM 500 characters TOTAL (Mastodon will reject anything longer)
+- Count EVERY character including spaces, hashtags, punctuation
+- NO platform greetings like "Hey Mastodon!" - wastes characters
+- NO placeholder URLs like "YOUR_VIDEO_ID" - the actual URL will be added automatically
+- Include 3-5 SHORT hashtags at the end (#Linux not #LinuxForBeginners)
+- Keep main text to ~380 chars MAX to leave room for hashtags (URL added separately)
+- If style is 'detailed', be comprehensive but STAY UNDER 500 chars total
+
+Write the toot now WITHOUT including any URLs (MUST be under 500 chars total):"""
+
+            else:
+                # Fallback for unknown platforms
+                prompt = f"""Create an engaging social media post for this new {platform_name} video.
+
+Title: {title}
+Description: {cleaned_desc}
+
+Style: {post_style}
+{style_instruction}
+
+Keep it under 280 characters, include the URL, and make it clickable.
+
+Write the post now:"""
 
             response = self.model.generate_content(prompt)
             notification = response.text.strip()
             
-            # Ensure URL is included
-            if url not in notification:
+            # Clean up common LLM meta-text patterns
+            meta_patterns = [
+                r'^(?:Here\'?s|Okay,? here\'?s|Alright,? here\'?s)\s+(?:a|an|your)\s+(?:Bluesky|Mastodon|Discord|Matrix)?\s*(?:post|toot|announcement|draft).*?:?\s*',
+                r'^(?:Here you go|Sure thing|Certainly).*?:?\s*',
+                r'^Draft.*?:?\s*',
+            ]
+            
+            for pattern in meta_patterns:
+                notification = re.sub(pattern, '', notification, flags=re.IGNORECASE | re.MULTILINE)
+            notification = notification.strip()
+            
+            # Ensure URL is included (should be from LLM, but double-check)
+            if url and url not in notification:
                 notification += f"\n\n{url}"
             
-            logger.debug(f"Generated notification: {notification[:50]}...")
+            logger.info(f"✨ Generated {social_platform} post ({post_style} style): {notification[:60]}...")
             return notification
             
         except Exception as e:
-            logger.error(f"Error generating enhanced notification: {e}")
+            logger.error(f"Error generating enhanced notification for {social_platform}: {e}")
             return None
     
     def analyze_sentiment(self, video_data: Dict[str, Any]) -> Optional[str]:

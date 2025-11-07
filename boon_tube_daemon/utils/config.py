@@ -255,9 +255,13 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     
     # 4. Fallback to environment variable or .env file
     value = get_config(section, key, default=default)
-    if value:
+    # Skip placeholder values (common in template .env files)
+    if value and not value.startswith('YOUR_'):
         logger.debug(f"✓ Retrieved {section}.{key} from environment/.env")
         return value
+    
+    if value and value.startswith('YOUR_'):
+        logger.warning(f"⚠ Found placeholder value for {section}.{key} in .env (starts with 'YOUR_')")
     
     logger.debug(f"Secret not found: {section}.{key}")
     return default
