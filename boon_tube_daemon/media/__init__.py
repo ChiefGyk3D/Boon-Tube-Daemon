@@ -6,7 +6,14 @@
 
 from boon_tube_daemon.media.base import MediaPlatform
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
-from boon_tube_daemon.media.tiktok import TikTokPlatform
+
+# TikTok support is optional (requires Playwright)
+try:
+    from boon_tube_daemon.media.tiktok import TikTokPlatform
+    _TIKTOK_AVAILABLE = True
+except ImportError:
+    TikTokPlatform = None
+    _TIKTOK_AVAILABLE = False
 
 __all__ = [
     'MediaPlatform',

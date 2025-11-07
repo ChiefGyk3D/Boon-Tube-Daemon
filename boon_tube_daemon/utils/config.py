@@ -159,7 +159,8 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     if doppler_token:
         # First check if it's already injected as an env var (from doppler run)
         value = os.getenv(env_var)
-        if value:
+        # Skip placeholder values
+        if value and not value.startswith('YOUR_'):
             logger.debug(f"✓ Retrieved {section}.{key} from Doppler (env var)")
             return value
         
@@ -180,7 +181,8 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                     secret_data = secrets_response.secrets[env_var]
                     # Extract the computed value (or raw if computed not available)
                     value = secret_data.get('computed', secret_data.get('raw'))
-                    if value:
+                    # Skip placeholder values
+                    if value and not value.startswith('YOUR_'):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler (SDK)")
                         return value
         except ImportError:
@@ -204,16 +206,22 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 secret_dict = json.loads(response['SecretString'])
                 # Try exact key match first
                 if key in secret_dict:
-                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
-                    return secret_dict[key]
+                    value = secret_dict[key]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                        return value
                 # Try uppercase key (for consistency)
                 if key.upper() in secret_dict:
-                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
-                    return secret_dict[key.upper()]
+                    value = secret_dict[key.upper()]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                        return value
                 # Try the full env var name
                 if env_var in secret_dict:
-                    logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
-                    return secret_dict[env_var]
+                    value = secret_dict[env_var]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
+                        return value
         except ImportError:
             logger.debug("boto3 not installed, skipping AWS Secrets Manager")
         except Exception as e:
@@ -238,16 +246,22 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 data = secret['data']['data']
                 # Try exact key match first
                 if key in data:
-                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
-                    return data[key]
+                    value = data[key]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                        return value
                 # Try uppercase key
                 if key.upper() in data:
-                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
-                    return data[key.upper()]
+                    value = data[key.upper()]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                        return value
                 # Try the full env var name
                 if env_var in data:
-                    logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
-                    return data[env_var]
+                    value = data[env_var]
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
+                        return value
         except ImportError:
             logger.debug("hvac not installed, skipping HashiCorp Vault")
         except Exception as e:

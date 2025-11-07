@@ -30,7 +30,14 @@ from boon_tube_daemon.utils.config import load_config, get_config, get_bool_conf
 
 # Import media platforms
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
-from boon_tube_daemon.media.tiktok import TikTokPlatform
+
+# TikTok support is optional (requires Playwright)
+try:
+    from boon_tube_daemon.media.tiktok import TikTokPlatform
+    TIKTOK_AVAILABLE = True
+except ImportError:
+    TikTokPlatform = None
+    TIKTOK_AVAILABLE = False
 
 # Import social platforms
 from boon_tube_daemon.social.discord import DiscordPlatform
@@ -85,14 +92,17 @@ class BoonTubeDaemon:
                 logger.warning("  ⚠ YouTube monitoring disabled (authentication failed)")
         
         if get_bool_config('TikTok', 'enable_monitoring', default=False):
-            tiktok = TikTokPlatform()
-            if tiktok.authenticate():
-                self.media_platforms.append(tiktok)
+            if not TIKTOK_AVAILABLE:
+                logger.warning("  ⚠ TikTok monitoring disabled (Playwright not installed)")
             else:
-                logger.warning("  ⚠ TikTok monitoring disabled (authentication failed)")
+                tiktok = TikTokPlatform()
+                if tiktok.authenticate():
+                    self.media_platforms.append(tiktok)
+                else:
+                    logger.warning("  ⚠ TikTok monitoring disabled (authentication failed)")
         
         if not self.media_platforms:
-            logger.error("❌ No media platforms configured! Please enable YouTube or TikTok monitoring.")
+            logger.error("❌ No media platforms configured! Please enable YouTube monitoring.")
             return False
         
         logger.info(f"✓ {len(self.media_platforms)} media platform(s) enabled")

@@ -1,10 +1,29 @@
 # Docker Usage for Boon-Tube-Daemon
 
+## Build Variants
+
+### 🚀 Optimized Build (Default - Recommended)
+**Size:** ~652MB | **TikTok:** ❌ | **CVE Fixes:** ✅
+
+The optimized build excludes TikTok/Playwright dependencies for a smaller, more secure image:
+- ✅ YouTube monitoring
+- ✅ All social platforms (Discord, Matrix, Bluesky, Mastodon)
+- ✅ Gemini LLM integration
+- ✅ CVE-2025-7709 fix (SQLite 3.50.4)
+- ✅ CVE-2025-8869 fix (pip 25.3+)
+- ❌ TikTok monitoring (Playwright not included)
+
+### 📦 Full Build (With TikTok)
+**Size:** ~2GB | **TikTok:** ⚠️ Planned | **CVE Fixes:** ✅
+
+TikTok support is planned but not yet functional. Use optimized build until TikTok is ready.
+
 ## Quick Start
 
 ### Build the Image
 
 ```bash
+# Optimized build (default)
 docker build -t boon-tube-daemon:latest -f docker/Dockerfile .
 ```
 
@@ -74,10 +93,22 @@ This allows the daemon to remember the last video ID across container restarts.
 ## Image Details
 
 - **Base Image:** python:3.14-slim
-- **Size:** ~2GB (includes Playwright + Chromium for TikTok support)
-- **Python Version:** 3.14
-- **Includes:** All dependencies from requirements.txt
+- **Size:** ~652MB (optimized) / ~2GB (with TikTok)
+- **Python Version:** 3.14 (in virtual environment)
+- **Multi-arch:** amd64, arm64
 - **Health Check:** Runs every 5 minutes
+
+### Security Fixes
+
+#### CVE-2025-7709: SQLite Integer Overflow
+**Severity:** High | **Fixed in:** SQLite 3.50.3+
+
+Debian trixie ships SQLite 3.46.1-7 which is vulnerable to an integer overflow in the FTS5 extension. We compile SQLite 3.50.4 from source to ensure security.
+
+#### CVE-2025-8869: pip Symbolic Link Extraction
+**Severity:** Medium | **Fixed in:** pip 25.3+
+
+pip versions before 25.3 are vulnerable to a symbolic link extraction vulnerability. We upgrade pip to the latest version (25.3+) during build.
 
 ## Health Check
 
