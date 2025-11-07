@@ -154,12 +154,36 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     """
     env_var = f"{section}_{key}".upper()
     
-    # 1. Try Doppler first (if DOPPLER_TOKEN is set, Doppler injects all secrets as env vars)
-    if os.getenv('DOPPLER_TOKEN'):
+    # 1. Try Doppler first (if DOPPLER_TOKEN is set)
+    doppler_token = os.getenv('DOPPLER_TOKEN')
+    if doppler_token:
+        # First check if it's already injected as an env var (from doppler run)
         value = os.getenv(env_var)
         if value:
-            logger.debug(f"✓ Retrieved {section}.{key} from Doppler")
+            logger.debug(f"✓ Retrieved {section}.{key} from Doppler (env var)")
             return value
+        
+        # If not in env, fetch from Doppler API using the SDK
+        try:
+            from dopplersdk import DopplerSDK
+            
+            sdk = DopplerSDK(access_token=doppler_token)
+            # Get all secrets for this project/config
+            secrets_response = sdk.secrets.list(
+                project=os.getenv('DOPPLER_PROJECT'),
+                config=os.getenv('DOPPLER_CONFIG', 'dev')
+            )
+            
+            # Look for our secret by name
+            if hasattr(secrets_response, 'secrets') and secrets_response.secrets:
+                for secret in secrets_response.secrets:
+                    if secret.name == env_var:
+                        logger.debug(f"✓ Retrieved {section}.{key} from Doppler (SDK)")
+                        return secret.computed.value
+        except ImportError:
+            logger.debug("dopplersdk not installed, skipping Doppler SDK lookup")
+        except Exception as e:
+            logger.debug(f"Doppler SDK lookup failed: {e}")
     
     # 2. Try AWS Secrets Manager (if enabled)
     if get_bool_config('Secrets', 'aws_enabled', default=False):
