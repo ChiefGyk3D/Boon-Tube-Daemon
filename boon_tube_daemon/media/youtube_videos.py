@@ -163,11 +163,11 @@ class YouTubeVideosPlatform(MediaPlatform):
             
             uploads_playlist_id = response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
             
-            # Get the most recent upload (1 unit)
+            # Get recent uploads (check up to 10 to find a non-livestream video)
             playlist_request = self.client.playlistItems().list(
                 part="snippet",
                 playlistId=uploads_playlist_id,
-                maxResults=1
+                maxResults=10
             )
             playlist_response = playlist_request.execute()
             
@@ -175,21 +175,36 @@ class YouTubeVideosPlatform(MediaPlatform):
                 logger.debug(f"No uploads found for YouTube channel")
                 return False, None
             
-            video_id = playlist_response['items'][0]['snippet']['resourceId']['videoId']
+            # Get video IDs for batch lookup
+            video_ids = [item['snippet']['resourceId']['videoId'] for item in playlist_response['items']]
             
-            # Get video details (1 unit)
+            # Get video details for all videos (1 unit, checks up to 50 videos)
             video_request = self.client.videos().list(
-                part="snippet,contentDetails,statistics",
-                id=video_id
+                part="snippet,contentDetails,statistics,liveStreamingDetails",
+                id=','.join(video_ids)
             )
             video_response = video_request.execute()
             
             if not video_response.get('items'):
                 return False, None
             
-            video_data = video_response['items'][0]
+            # Find the first video that is NOT a livestream
+            video_data = None
+            for video in video_response['items']:
+                # Skip if this was a livestream (has liveStreamingDetails)
+                if 'liveStreamingDetails' in video:
+                    logger.debug(f"Skipping livestream: {video['snippet']['title'][:50]}")
+                    continue
+                video_data = video
+                break
+            
+            if not video_data:
+                logger.debug(f"No non-livestream videos found in recent uploads")
+                return False, None
+            
             snippet = video_data.get('snippet', {})
             statistics = video_data.get('statistics', {})
+            video_id = video_data['id']
             
             # Extract video information
             video_info = {

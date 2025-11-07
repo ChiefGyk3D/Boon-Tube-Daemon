@@ -174,12 +174,15 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 config=os.getenv('DOPPLER_CONFIG', 'dev')
             )
             
-            # Look for our secret by name
+            # secrets is a dict of {name: {raw: ..., computed: ...}}
             if hasattr(secrets_response, 'secrets') and secrets_response.secrets:
-                for secret in secrets_response.secrets:
-                    if secret.name == env_var:
+                if env_var in secrets_response.secrets:
+                    secret_data = secrets_response.secrets[env_var]
+                    # Extract the computed value (or raw if computed not available)
+                    value = secret_data.get('computed', secret_data.get('raw'))
+                    if value:
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler (SDK)")
-                        return secret.computed.value
+                        return value
         except ImportError:
             logger.debug("dopplersdk not installed, skipping Doppler SDK lookup")
         except Exception as e:

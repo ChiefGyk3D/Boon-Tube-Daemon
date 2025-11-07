@@ -12,12 +12,19 @@ Usage:
 
 With Doppler:
     doppler run -- python3 test_social.py --platform discord
+
+Note: This script loads .env automatically for configuration (non-secrets)
+      and uses Doppler (via DOPPLER_TOKEN in .env) for secrets.
 """
 
 import argparse
 import logging
 import sys
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load .env for configuration (DOPPLER_TOKEN, enable flags, etc.)
+load_dotenv()
 from boon_tube_daemon.social.bluesky import BlueskyPlatform
 from boon_tube_daemon.social.mastodon import MastodonPlatform
 from boon_tube_daemon.social.discord import DiscordPlatform
@@ -127,7 +134,7 @@ If you see this, the integration is working! ✨"""
 
 
 def test_discord(message: str = None):
-    """Test Discord platform."""
+    """Test Discord platform with YouTube and TikTok simulations."""
     print("\n" + "="*60)
     print("💬 Testing Discord")
     print("="*60)
@@ -157,27 +164,71 @@ def test_discord(message: str = None):
         print("   • Optional: Set per-platform webhooks (DISCORD_WEBHOOK_YOUTUBE, etc.)")
         return False
     
-    # Test posting
-    print("\n2. Testing post...")
-    test_message = message or f"""🧪 **Test post from Boon-Tube-Daemon**
+    # Test 2: YouTube video notification (with platform_name)
+    print("\n2. Testing YouTube video notification...")
+    youtube_message = message or f"""🎬 New YouTube video!
 
-This is an automated test at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+**Test Video Title - Coding Stream Highlights**
 
-Testing features:
-• **Bold text** and *italic text*
-• Links: https://github.com/ChiefGyk3D/Boon-Tube-Daemon
-• Emojis: 🎉 ✨ 🚀
+https://youtube.com/watch?v=dQw4w9WgXcQ
 
-If you see this, the integration is working!"""
+#YouTube #Coding #Tutorial"""
     
-    message_id = platform.post(test_message)
+    youtube_data = {
+        'title': 'Test Video Title - Coding Stream Highlights',
+        'url': 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+        'thumbnail_url': 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+        'description': 'This is a test video description'
+    }
     
-    if message_id:
-        print(f"   ✓ Message posted successfully")
-        print(f"   Message ID: {message_id}")
+    youtube_id = platform.post(youtube_message, platform_name='youtube', stream_data=youtube_data)
+    
+    if youtube_id:
+        print(f"   ✓ YouTube message posted successfully")
+        print(f"   Message ID: {youtube_id}")
+        if 'youtube' in platform.role_mentions:
+            print(f"   • Used YouTube-specific role: {platform.role_mentions['youtube']}")
+        elif platform.role_id:
+            print(f"   • Used default role: {platform.role_id}")
+        else:
+            print("   • No role mention")
+        print("   ⏸️  Waiting 2 seconds before next test...")
+        import time
+        time.sleep(2)
+    else:
+        print("   ✗ YouTube post failed")
+        return False
+    
+    # Test 3: TikTok video notification (with platform_name)
+    print("\n3. Testing TikTok video notification...")
+    tiktok_message = message or f"""📱 New TikTok!
+
+**Epic Dance Challenge** 💃
+
+https://tiktok.com/@username/video/1234567890
+
+#TikTok #Dance #Viral"""
+    
+    tiktok_data = {
+        'title': 'Epic Dance Challenge',
+        'url': 'https://tiktok.com/@username/video/1234567890',
+        'description': 'Check out this amazing dance!'
+    }
+    
+    tiktok_id = platform.post(tiktok_message, platform_name='tiktok', stream_data=tiktok_data)
+    
+    if tiktok_id:
+        print(f"   ✓ TikTok message posted successfully")
+        print(f"   Message ID: {tiktok_id}")
+        if 'tiktok' in platform.role_mentions:
+            print(f"   • Used TikTok-specific role: {platform.role_mentions['tiktok']}")
+        elif platform.role_id:
+            print(f"   • Used default role: {platform.role_id}")
+        else:
+            print("   • No role mention")
         return True
     else:
-        print("   ✗ Post failed")
+        print("   ✗ TikTok post failed")
         return False
 
 
@@ -272,7 +323,9 @@ Examples:
     results = {}
     
     print("🚀 Boon-Tube-Daemon Social Platform Tester")
-    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("\n" + "ℹ️  Note: Discord test will post TWO messages to test per-platform")
+    print("   webhooks/roles (YouTube and TikTok simulations)\n")
     
     if args.all or args.platform == 'bluesky':
         results['Bluesky'] = test_bluesky(args.message)
@@ -281,6 +334,8 @@ Examples:
         results['Mastodon'] = test_mastodon(args.message)
     
     if args.all or args.platform == 'discord':
+        print("\n💡 Discord test will simulate both YouTube and TikTok notifications")
+        print("   to verify per-platform webhook/role configuration...\n")
         results['Discord'] = test_discord(args.message)
     
     if args.all or args.platform == 'matrix':

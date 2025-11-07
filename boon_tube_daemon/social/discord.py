@@ -113,6 +113,9 @@ class DiscordPlatform:
             # Build Discord embed with rich card
             embed = None
             if first_url and stream_data:
+                # Determine if this is a video upload or livestream based on platform_name
+                is_video_upload = platform_name and platform_name.lower() in ['youtube', 'tiktok']
+                
                 # Determine color and platform info from URL
                 color = 0x9146FF  # Default purple
                 platform_title = "Live Stream"
@@ -122,38 +125,60 @@ class DiscordPlatform:
                     platform_title = "🟣 Live on Twitch"
                 elif _is_url_for_domain(first_url, 'youtube.com') or _is_url_for_domain(first_url, 'youtu.be'):
                     color = 0xFF0000  # YouTube red
-                    platform_title = "🔴 Live on YouTube"
+                    platform_title = "🎬 New YouTube Video" if is_video_upload else "🔴 Live on YouTube"
                 elif _is_url_for_domain(first_url, 'kick.com'):
                     color = 0x53FC18  # Kick green
                     platform_title = "🟢 Live on Kick"
+                elif _is_url_for_domain(first_url, 'tiktok.com'):
+                    color = 0x00F2EA  # TikTok cyan
+                    platform_title = "📱 New TikTok"
                 
-                # Get stream data
-                stream_title = stream_data.get('title', 'Live Stream')
+                # Get data
+                content_title = stream_data.get('title', 'New Video' if is_video_upload else 'Live Stream')
                 viewer_count = stream_data.get('viewer_count')
                 thumbnail_url = stream_data.get('thumbnail_url')
                 game_name = stream_data.get('game_name')
                 
                 embed = {
                     "title": platform_title,
-                    "description": stream_title if stream_title else "Stream is live!",
+                    "description": content_title if content_title else ("New video uploaded!" if is_video_upload else "Stream is live!"),
                     "url": first_url,
                     "color": color,
                 }
                 
-                # Add fields for viewer count and game if available
+                # Add fields - different for videos vs livestreams
                 fields = []
-                if viewer_count is not None:
-                    fields.append({
-                        "name": "👥 Viewers",
-                        "value": f"{viewer_count:,}",
-                        "inline": True
-                    })
-                if game_name:
-                    fields.append({
-                        "name": "🎮 Category",
-                        "value": game_name,
-                        "inline": True
-                    })
+                if is_video_upload:
+                    # For video uploads, show views/likes if available (not viewer count)
+                    view_count = stream_data.get('view_count')
+                    like_count = stream_data.get('like_count')
+                    
+                    if view_count is not None and str(view_count) != '0':
+                        fields.append({
+                            "name": "👀 Views",
+                            "value": f"{int(view_count):,}" if str(view_count).isdigit() else str(view_count),
+                            "inline": True
+                        })
+                    if like_count is not None and str(like_count) != '0':
+                        fields.append({
+                            "name": "👍 Likes",
+                            "value": f"{int(like_count):,}" if str(like_count).isdigit() else str(like_count),
+                            "inline": True
+                        })
+                else:
+                    # For livestreams, show viewer count and game
+                    if viewer_count is not None:
+                        fields.append({
+                            "name": "👥 Viewers",
+                            "value": f"{viewer_count:,}",
+                            "inline": True
+                        })
+                    if game_name:
+                        fields.append({
+                            "name": "🎮 Category",
+                            "value": game_name,
+                            "inline": True
+                        })
                 
                 if fields:
                     embed["fields"] = fields
@@ -162,7 +187,11 @@ class DiscordPlatform:
                 if thumbnail_url:
                     embed["image"] = {"url": thumbnail_url}
                 
-                embed["footer"] = {"text": "Click to watch the stream!"}
+                # Different footer for videos vs livestreams
+                if is_video_upload:
+                    embed["footer"] = {"text": "Click to watch!"}
+                else:
+                    embed["footer"] = {"text": "Click to watch the stream!"}
             
             # Build content: LLM message + role mention
             content = message  # Start with the LLM-generated message

@@ -90,37 +90,67 @@ class TikTokPlatform(MediaPlatform):
         await self._ensure_browser()
         
         try:
+            # Get ms_token cookie if available (helps avoid bot detection)
+            ms_token = get_config("TikTok", "ms_token", default="")
+            
             context = await self.browser.new_context(
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
             
             page = await context.new_page()
             
+            # Add TikTok cookies if ms_token is available
+            if ms_token:
+                await context.add_cookies([{
+                    'name': 'ms_token',
+                    'value': ms_token,
+                    'domain': '.tiktok.com',
+                    'path': '/'
+                }])
+                logger.debug("Added ms_token cookie for TikTok authentication")
+            
+            # Intercept API responses to capture video data
             # Intercept API responses to capture video data
             async def handle_response(response):
                 try:
-                    # Look for the repost/item_list API (contains video data)
-                    if "api/repost/item_list" in response.url or "api/post/item_list" in response.url:
+                    # ONLY look for post/item_list (user's own videos, NOT reposts)
+                    if "api/post/item_list" in response.url:
                         try:
                             data = await response.json()
                             if "itemList" in data and data["itemList"]:
-                                logger.debug(f"Found {len(data['itemList'])} videos in API response")
-                                self.video_data = data["itemList"]
+                                # Filter to ONLY videos actually by this user
+                                user_videos = [
+                                    item for item in data["itemList"]
+                                    if item.get("author", {}).get("uniqueId", "").lower() == username.lower()
+                                ]
+                                if user_videos:
+                                    logger.debug(f"Found {len(user_videos)} videos by @{username}")
+                                    self.video_data = user_videos
+                                else:
+                                    logger.debug(f"API returned {len(data['itemList'])} videos but none by @{username}")
                         except:
                             pass
                 except:
                     pass
+
             
             page.on("response", handle_response)
             
             # Navigate to user profile
             url = f"https://www.tiktok.com/@{username}"
             logger.debug(f"Fetching TikTok videos for @{username}...")
-            await page.goto(url, wait_until="networkidle", timeout=30000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
-            # Wait for API calls to complete
-            await page.wait_for_timeout(5000)
+            # Wait for page to load
+            await page.wait_for_timeout(3000)
+            
+            # Scroll to trigger lazy loading of videos
+            logger.debug("Scrolling to trigger video loading...")
+            await page.evaluate('window.scrollBy(0, 300)')
+            await page.wait_for_timeout(2000)
+            await page.evaluate('window.scrollBy(0, 300)')
+            await page.wait_for_timeout(3000)
             
             await context.close()
             
