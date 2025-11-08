@@ -54,13 +54,17 @@ def load_config(env_path: str = ".env") -> bool:
 
 def get_config(section: str, key: str, default: Any = None) -> Optional[str]:
     """
-    Get configuration value from environment variables.
+    Get configuration value from Doppler or environment variables.
+    
+    Priority order:
+    1. Doppler (if DOPPLER_TOKEN is set) - tries both simple and sectioned formats
+    2. Environment variable (simple format: KEY)
+    3. Environment variable (sectioned format: SECTION_KEY)
+    4. Default value
     
     Supports two formats:
     1. Simple: KEY (uppercase) - e.g., CHECK_INTERVAL
     2. Sectioned: SECTION_KEY (uppercase) - e.g., SETTINGS_CHECK_INTERVAL
-    
-    Priority: Simple key first, then sectioned key, then default
     
     Args:
         section: Configuration section (e.g., 'TikTok', 'YouTube', 'Settings')
@@ -70,19 +74,53 @@ def get_config(section: str, key: str, default: Any = None) -> Optional[str]:
     Returns:
         Configuration value or default
     """
-    # First try simple key format (e.g., CHECK_INTERVAL)
+    # Build key names
     simple_key = key.upper()
-    value = os.getenv(simple_key)
+    sectioned_key = f"{section}_{key}".upper()
     
+    # 1. Try Doppler first (if DOPPLER_TOKEN is set)
+    doppler_token = os.getenv('DOPPLER_TOKEN')
+    if doppler_token:
+        try:
+            from dopplersdk import DopplerSDK
+            
+            sdk = DopplerSDK(access_token=doppler_token)
+            secrets_response = sdk.secrets.list(
+                project=os.getenv('DOPPLER_PROJECT'),
+                config=os.getenv('DOPPLER_CONFIG', 'dev')
+            )
+            
+            if hasattr(secrets_response, 'secrets') and secrets_response.secrets:
+                # Try sectioned key first (e.g., BLUESKY_HANDLE)
+                if sectioned_key in secrets_response.secrets:
+                    value = secrets_response.secrets[sectioned_key].get('computed',
+                            secrets_response.secrets[sectioned_key].get('raw', ''))
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {sectioned_key}")
+                        return value
+                
+                # Try simple key format (e.g., CHECK_INTERVAL)
+                if simple_key in secrets_response.secrets:
+                    value = secrets_response.secrets[simple_key].get('computed',
+                            secrets_response.secrets[simple_key].get('raw', ''))
+                    if value and not value.startswith('YOUR_'):
+                        logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {simple_key}")
+                        return value
+        except ImportError:
+            logger.debug("dopplersdk not installed, skipping Doppler lookup")
+        except Exception as e:
+            logger.debug(f"Failed to query Doppler for config: {e}")
+    
+    # 2. Try simple key format from env (e.g., CHECK_INTERVAL)
+    value = os.getenv(simple_key)
     if value is not None:
         return value
     
-    # Fall back to sectioned format (e.g., SETTINGS_CHECK_INTERVAL)
-    env_var = f"{section}_{key}".upper()
-    value = os.getenv(env_var, default)
+    # 3. Fall back to sectioned format from env (e.g., SETTINGS_CHECK_INTERVAL)
+    value = os.getenv(sectioned_key, default)
     
     if value is None:
-        logger.debug(f"Config not found: {section}.{key} (tried {simple_key} and {env_var})")
+        logger.debug(f"Config not found: {section}.{key} (tried Doppler, {simple_key}, {sectioned_key})")
     
     return value
 
