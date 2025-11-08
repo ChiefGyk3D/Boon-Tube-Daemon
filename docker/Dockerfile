@@ -20,7 +20,9 @@ WORKDIR /app
 # Install system dependencies and upgrade SQLite to fix CVE-2025-7709
 # CVE-2025-7709: Integer overflow in SQLite FTS5 extension (fixed in 3.50.3)
 # Debian trixie ships 3.46.1-7, so we compile SQLite 3.50.4 from source
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
     gcc \
     libc6-dev \
     libffi-dev \
@@ -40,7 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /tmp/sqlite-autoconf-3500400* \
     && apt-get purge -y wget make tcl \
     && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create and activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv
