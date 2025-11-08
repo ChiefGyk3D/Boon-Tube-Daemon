@@ -57,6 +57,12 @@ class MastodonPlatform(SocialPlatform):
         api_base_url = get_config('Mastodon', 'api_base_url')
         
         if not all([client_id, client_secret, access_token, api_base_url]):
+            missing = []
+            if not client_id: missing.append('client_id')
+            if not client_secret: missing.append('client_secret')
+            if not access_token: missing.append('access_token')
+            if not api_base_url: missing.append('api_base_url')
+            logger.warning(f"✗ Mastodon missing credentials: {', '.join(missing)}")
             return False
             
         try:
@@ -70,7 +76,7 @@ class MastodonPlatform(SocialPlatform):
             logger.info("✓ Mastodon authenticated")
             return True
         except Exception as e:
-            logger.warning(f"✗ Mastodon authentication failed: {e}")
+            logger.warning(f"✗ Mastodon authentication failed for {api_base_url}: {e}")
             return False
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
