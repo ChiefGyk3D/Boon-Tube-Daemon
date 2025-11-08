@@ -54,6 +54,7 @@ class BlueskyPlatform:
         app_password = get_secret('Bluesky', 'app_password')
         
         if not all([handle, app_password]):
+            logger.warning(f"✗ Bluesky missing credentials - handle: {'present' if handle else 'missing'}, app_password: {'present' if app_password else 'missing'}")
             return False
             
         try:
@@ -63,7 +64,8 @@ class BlueskyPlatform:
             logger.info("✓ Bluesky authenticated")
             return True
         except Exception as e:
-            logger.warning(f"✗ Bluesky authentication failed: {e}")
+            # Only log handle on authentication failure to help debug credential issues
+            logger.warning(f"✗ Bluesky authentication failed for handle '{handle}': {e}")
             return False
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
