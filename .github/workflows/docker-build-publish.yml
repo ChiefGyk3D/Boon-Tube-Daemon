@@ -74,13 +74,14 @@ jobs:
           type=sha
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build Docker image
+    - name: Build Docker image (test on single platform)
       uses: docker/build-push-action@v6
       with:
         context: .
         file: ./docker/Dockerfile
         push: false
         load: true
+        platforms: linux/amd64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
@@ -109,7 +110,7 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-    - name: Push Docker image
+    - name: Push Docker image (multi-arch)
       if: github.event_name != 'pull_request'
       uses: docker/build-push-action@v6
       with:
@@ -118,6 +119,11 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        # Multi-arch build: amd64 + arm64 (Raspberry Pi)
+        # Note: This step takes 15+ minutes due to:
+        # 1. Building for two architectures
+        # 2. Compiling SQLite 3.50.4 from source for CVE-2025-7709 fix
+        # 3. Installing all Python dependencies twice (once per arch)
         platforms: linux/amd64,linux/arm64
         cache-from: type=gha
         cache-to: type=gha,mode=max

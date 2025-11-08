@@ -87,3 +87,6 @@ htmlcov/
 # OS-specific
 Thumbs.db
 desktop.ini
+
+# Docker overrides (for local testing)
+docker-compose.override.yml

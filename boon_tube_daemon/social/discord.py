@@ -113,8 +113,11 @@ class DiscordPlatform:
             # Build Discord embed with rich card
             embed = None
             if first_url and stream_data:
+                # Normalize platform name for comparisons (strip suffixes like -videos, -livestreams)
+                platform_base = platform_name.lower().split('-')[0] if platform_name else None
+                
                 # Determine if this is a video upload or livestream based on platform_name
-                is_video_upload = platform_name and platform_name.lower() in ['youtube', 'tiktok']
+                is_video_upload = platform_base in ['youtube', 'tiktok']
                 
                 # Determine color and platform info from URL
                 color = 0x9146FF  # Default purple
@@ -185,8 +188,10 @@ class DiscordPlatform:
             content = message  # Start with the LLM-generated message
             
             # Add role mention if configured for this platform
-            if platform_name and platform_name.lower() in self.role_mentions:
-                role_id = self.role_mentions[platform_name.lower()]
+            # Normalize platform name (strip suffixes like -videos, -livestreams)
+            platform_base = platform_name.lower().split('-')[0] if platform_name else None
+            if platform_base and platform_base in self.role_mentions:
+                role_id = self.role_mentions[platform_base]
                 content += f" <@&{role_id}>"
             elif self.role_id:
                 # Use default role if no platform-specific role

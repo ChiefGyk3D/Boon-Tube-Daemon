@@ -147,34 +147,36 @@ def get_secret(platform, key, secret_name_env=None, secret_path_env=None, dopple
     """
     try:
         # Priority 1: Try Doppler first if DOPPLER_TOKEN exists (auto-detect)
-        if os.getenv('DOPPLER_TOKEN') and doppler_secret_env:
-            secret_name = os.getenv(doppler_secret_env)
-            if secret_name:
-                secrets = load_secrets_from_doppler(secret_name)
-                secret_value = secrets.get(key)
-                if secret_value:
-                    return secret_value
+        doppler_token = os.getenv('DOPPLER_TOKEN')
+        if doppler_token:
+            try:
+                doppler_project = os.getenv('DOPPLER_PROJECT', 'stream-daemon')
+                doppler_config = os.getenv('DOPPLER_CONFIG', 'prd')
                 
-                # Special case: For keys like GEMINI_API_KEY that aren't prefixed in Doppler,
-                # try getting the direct key (GEMINI_API_KEY) from all Doppler secrets
-                try:
-                    doppler_token = os.getenv('DOPPLER_TOKEN')
-                    if doppler_token:
-                        doppler_project = os.getenv('DOPPLER_PROJECT', 'stream-daemon')
-                        doppler_config = os.getenv('DOPPLER_CONFIG', 'prd')
-                        
-                        sdk = DopplerSDK()
-                        sdk.set_access_token(doppler_token)
-                        secrets_response = sdk.secrets.list(project=doppler_project, config=doppler_config)
-                        
-                        if hasattr(secrets_response, 'secrets'):
-                            # Try direct key lookup (e.g., GEMINI_API_KEY)
-                            direct_key = key.upper()
-                            if direct_key in secrets_response.secrets:
-                                return secrets_response.secrets[direct_key].get('computed', 
-                                       secrets_response.secrets[direct_key].get('raw', ''))
-                except Exception as e:
-                    logger.debug(f"Direct key lookup failed for {key}: {e}")
+                sdk = DopplerSDK()
+                sdk.set_access_token(doppler_token)
+                secrets_response = sdk.secrets.list(project=doppler_project, config=doppler_config)
+                
+                if hasattr(secrets_response, 'secrets'):
+                    # Try platform-specific key first (e.g., DISCORD_ROLE_YOUTUBE)
+                    env_key = f"{platform.upper()}_{key.upper()}"
+                    if env_key in secrets_response.secrets:
+                        value = secrets_response.secrets[env_key].get('computed', 
+                                secrets_response.secrets[env_key].get('raw', ''))
+                        if value:  # Only return if not empty
+                            logger.debug(f"Found secret in Doppler: {env_key}")
+                            return value
+                    
+                    # Try simple key format (e.g., CHECK_INTERVAL)
+                    simple_key = key.upper()
+                    if simple_key in secrets_response.secrets:
+                        value = secrets_response.secrets[simple_key].get('computed',
+                                secrets_response.secrets[simple_key].get('raw', ''))
+                        if value:  # Only return if not empty
+                            logger.debug(f"Found secret in Doppler: {simple_key}")
+                            return value
+            except Exception as e:
+                logger.debug(f"Doppler lookup failed for {platform}.{key}: {e}")
         
         # Check which secrets manager is enabled (for AWS/Vault)
         secret_manager = os.getenv('SECRETS_MANAGER', 'none').lower()
