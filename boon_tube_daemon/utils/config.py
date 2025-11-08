@@ -56,23 +56,33 @@ def get_config(section: str, key: str, default: Any = None) -> Optional[str]:
     """
     Get configuration value from environment variables.
     
-    Environment variable format: SECTION_KEY (uppercase)
-    Example: TikTok.username -> TIKTOK_USERNAME
+    Supports two formats:
+    1. Simple: KEY (uppercase) - e.g., CHECK_INTERVAL
+    2. Sectioned: SECTION_KEY (uppercase) - e.g., SETTINGS_CHECK_INTERVAL
+    
+    Priority: Simple key first, then sectioned key, then default
     
     Args:
-        section: Configuration section (e.g., 'TikTok', 'YouTube')
-        key: Configuration key (e.g., 'username', 'api_key')
+        section: Configuration section (e.g., 'TikTok', 'YouTube', 'Settings')
+        key: Configuration key (e.g., 'username', 'api_key', 'check_interval')
         default: Default value if not found
         
     Returns:
         Configuration value or default
     """
-    # Convert to environment variable format
+    # First try simple key format (e.g., CHECK_INTERVAL)
+    simple_key = key.upper()
+    value = os.getenv(simple_key)
+    
+    if value is not None:
+        return value
+    
+    # Fall back to sectioned format (e.g., SETTINGS_CHECK_INTERVAL)
     env_var = f"{section}_{key}".upper()
     value = os.getenv(env_var, default)
     
     if value is None:
-        logger.debug(f"Config not found: {section}.{key} ({env_var})")
+        logger.debug(f"Config not found: {section}.{key} (tried {simple_key} and {env_var})")
     
     return value
 
