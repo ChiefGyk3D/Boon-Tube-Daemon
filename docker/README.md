@@ -1,5 +1,22 @@
 # Docker Usage for Boon-Tube-Daemon
 
+## 📦 Pull from GitHub Container Registry (Recommended)
+
+Pre-built images are available on GitHub Container Registry:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+
+# Run directly from GHCR
+docker run -d --env-file .env ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+```
+
+**Available tags:**
+- `latest` - Latest stable build from main branch
+- `v1.2.3` - Specific version tags
+- `main-<sha>` - Specific commit from main branch
+
 ## Build Variants
 
 ### 🚀 Optimized Build (Default - Recommended)
@@ -18,7 +35,7 @@ The optimized build excludes TikTok/Playwright dependencies for a smaller, more 
 
 TikTok support is planned but not yet functional. Use optimized build until TikTok is ready.
 
-## Quick Start
+## Quick Start (Build Locally)
 
 ### Build the Image
 

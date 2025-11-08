@@ -1,5 +1,9 @@
 # Boon-Tube-Daemon 🎬
 
+<div align="center">
+  <img src="images/banner.png" alt="Boon-Tube-Daemon Banner" width="800">
+</div>
+
 **Automated YouTube video monitoring with AI-enhanced multi-platform social notifications.**
 
 Monitor YouTube channels for new video uploads and automatically post unique, AI-generated notifications to Discord, Matrix, Bluesky, and Mastodon. Each platform gets a customized post with configurable tone (professional, conversational, detailed, or concise).
@@ -68,10 +72,26 @@ python test_all_platforms.py
 # 5. Run daemon
 doppler run -- python boon_tube_daemon/main.py
 
-# 6. Deploy as service (optional)
-sudo systemctl start boon-tube
-sudo systemctl enable boon-tube
+# 6. Deploy as systemd service (optional)
+sudo ./scripts/install-systemd.sh
+sudo systemctl start boon-tube-daemon
+sudo systemctl enable boon-tube-daemon
 ```
+
+### Alternative: Docker Deployment
+
+```bash
+# Pull from GitHub Container Registry
+docker pull ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+
+# Run with docker-compose
+docker-compose up -d
+
+# Or deploy as systemd service with Docker
+sudo ./scripts/install-systemd.sh  # Choose Docker mode
+```
+
+See [scripts/README.md](scripts/README.md) for more deployment options.
 
 ## 📁 Project Structure
 
@@ -92,10 +112,17 @@ Boon-Tube-Daemon/
 │   │   └── secrets.py         # Doppler integration
 │   └── main.py                 # Main daemon
 ├── tests/                      # Test scripts
+├── scripts/                    # Utility scripts
+│   ├── install-systemd.sh     # Install as systemd service
+│   ├── uninstall-systemd.sh   # Remove systemd service
+│   ├── create-secrets.sh      # Interactive secrets wizard
+│   └── setup_matrix_bot.sh    # Matrix bot setup helper
 ├── docs/                       # Documentation
 │   ├── setup/                  # Platform setup guides
 │   └── legal/                  # Legal documents
-├── docker/                     # Docker files (WIP)
+├── docker/                     # Docker configuration
+│   ├── Dockerfile             # Optimized build (652MB)
+│   └── README.md              # Docker usage guide
 ├── .env.example               # Configuration template
 └── README.md                  # This file
 ```
@@ -105,7 +132,9 @@ Boon-Tube-Daemon/
 - 📖 [Platform Status](PLATFORM_STATUS.md) - Current platform support details
 - ⚡ [Quick Start Guide](docs/QUICKSTART.md) - Detailed setup instructions
 - 🔧 [Platform Setup Guides](docs/setup/) - Discord, Matrix, Bluesky, Mastodon
-- 🔑 [Doppler Setup](docs/DOPPLER_SETUP.md) - Secrets management
+- �️ [Utility Scripts](scripts/README.md) - Installation and secrets management
+- 🐳 [Docker Guide](docker/README.md) - Docker deployment and GHCR
+- �🔑 [Doppler Setup](docs/DOPPLER_SETUP.md) - Secrets management
 - 📺 [YouTube Setup](docs/YOUTUBE_SETUP.md) - API key configuration
 - 🤝 [Contributing Guide](docs/CONTRIBUTING.md) - Development guidelines
 - 📋 [Changelog](docs/CHANGELOG.md) - Version history

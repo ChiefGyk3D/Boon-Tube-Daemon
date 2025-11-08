@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   boon-tube-daemon:
-    image: boon-tube-daemon:test
+    # Use pre-built image from GitHub Container Registry
+    # Or build locally: uncomment 'build' and comment 'image'
+    image: ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile
     container_name: boon-tube-daemon
     restart: unless-stopped
     

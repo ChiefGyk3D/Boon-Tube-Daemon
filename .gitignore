@@ -69,3 +69,21 @@ htmlcov/
 *.bak
 *.backup
 .env.bak
+
+# Temporary/organization scripts
+organize.sh
+cleanup.sh
+temp*.sh
+test_*.txt
+
+# Coverage reports
+coverage.xml
+.coverage
+htmlcov/
+
+# pytest cache
+.pytest_cache/
+
+# OS-specific
+Thumbs.db
+desktop.ini

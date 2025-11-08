@@ -67,11 +67,11 @@ This directory contains automated CI/CD workflows for Boon-Tube-Daemon.
 - Builds Docker image from `docker/Dockerfile`
 - Tests image can import boon_tube_daemon
 - Scans image with Trivy for vulnerabilities
-- Publishes to GitHub Container Registry (ghcr.io)
-- Publishes to Docker Hub (on main branch/tags only)
+- Publishes to GitHub Container Registry (ghcr.io) ONLY
 - Multi-architecture builds (amd64, arm64)
+- Optimized build (652MB) excludes TikTok/Playwright
 
-**Status:** ✅ **FIXED** - Updated Docker path and package names
+**Status:** ✅ **READY** - GHCR publishing configured, Docker Hub removed
 
 **Image Tags Generated:**
 - `latest` (main branch only)
@@ -79,14 +79,16 @@ This directory contains automated CI/CD workflows for Boon-Tube-Daemon.
 - `main-<sha>` (branch + commit SHA)
 - `pr-123` (pull request number)
 
-**Published Images:**
+**Published Image:**
 - `ghcr.io/chiefgyk3d/boon-tube-daemon:latest`
-- `[dockerhub-username]/boon-tube-daemon:latest` (if configured)
+
+**Pull Image:**
+```bash
+docker pull ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+```
 
 **Required Secrets:**
-- `GITHUB_TOKEN` (auto-provided)
-- `DOCKERHUB_USERNAME` (optional, for Docker Hub publishing)
-- `DOCKERHUB_TOKEN` (optional, for Docker Hub publishing)
+- `GITHUB_TOKEN` (auto-provided for GHCR)
 
 ---
 
@@ -122,33 +124,31 @@ All PRs are labeled and assigned for review.
 ### 1. Enable GitHub Actions
 GitHub Actions are enabled by default for public repositories.
 
-### 2. Configure Secrets
+### 2. Configure Secrets (Optional)
 
-#### Required for Docker Hub Publishing:
+All workflows work out-of-the-box with no configuration! Optional secrets for enhanced features:
+
 ```bash
 # Go to: Settings → Secrets and variables → Actions → New repository secret
 
-DOCKERHUB_USERNAME: your_dockerhub_username
-DOCKERHUB_TOKEN: your_dockerhub_access_token
-```
-
-#### Optional Integrations:
-```bash
 CODECOV_TOKEN: your_codecov_token  # For coverage reports at codecov.io
 SNYK_TOKEN: your_snyk_token        # For enhanced vulnerability scanning
 ```
 
-### 3. Docker Hub Access Token
-1. Log in to Docker Hub
-2. Go to Account Settings → Security
-3. Click "New Access Token"
-4. Name: `github-actions-stream-daemon`
-5. Permissions: Read, Write, Delete
-6. Copy token and add to GitHub secrets
+### 3. GitHub Container Registry (GHCR)
+Docker images are automatically published to GHCR (no setup required):
+- Published to: `ghcr.io/chiefgyk3d/boon-tube-daemon`
+- Uses `GITHUB_TOKEN` (auto-provided)
+- Images are public by default
 
-### 4. Enable GitHub Container Registry
+**Pull the image:**
+```bash
+docker pull ghcr.io/chiefgyk3d/boon-tube-daemon:latest
+```
+
+**Manage packages:**
 1. Go to your profile → Packages
-2. Find the stream-daemon package
+2. Find the `boon-tube-daemon` package
 3. Package settings → Change visibility (Public/Private)
 4. Connect to repository
 
@@ -308,14 +308,14 @@ Using Snyk + GitHub Security provides **defense in depth**:
 - Check .dockerignore isn't excluding needed files
 
 ### Tests fail in CI but pass locally:
-- Check Python version (CI uses 3.11, 3.12, 3.13)
+- Check Python version (CI uses 3.10-3.14)
 - Verify environment variables are set
-- Check for race conditions in async tests
+- Ensure PYTHONPATH is configured correctly
 
-### Docker Hub publish fails:
-- Verify DOCKERHUB_USERNAME secret is correct
-- Ensure DOCKERHUB_TOKEN hasn't expired
-- Check Docker Hub repository exists
+### GHCR publish fails:
+- Check `GITHUB_TOKEN` has packages:write permission
+- Verify repository visibility settings
+- Ensure workflow has `packages: write` permission
 
 ---
 
