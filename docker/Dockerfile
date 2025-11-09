@@ -73,7 +73,7 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 # Health check
-HEALTHCHECK --interval=5m --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=5m --timeout=30s --start-period=60s --retries=3 \
   CMD python -c "import boon_tube_daemon; print('OK')" || exit 1
 
 # Run the daemon
