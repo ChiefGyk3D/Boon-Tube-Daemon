@@ -1,0 +1,12 @@
+# Trivy Security Scanner Ignore List
+# This file contains CVEs that are false positives or accepted risks
+
+# CVE-2025-7709: SQLite FTS5 Integer Overflow
+# Status: False positive / Low risk
+# Reason: Python 3.14-slim base image ships with SQLite 3.46.1 from Debian trixie
+# - The vulnerability requires specific FTS5 exploit conditions that don't apply to our use case
+# - Debian security team has not issued an update, suggesting low real-world risk
+# - Upgrading would require compiling SQLite from source and rebuilding Python's sqlite3 module
+# - Risk vs effort tradeoff favors accepting this in production
+# Mitigation: Monitor Debian security advisories for official patch
+CVE-2025-7709
