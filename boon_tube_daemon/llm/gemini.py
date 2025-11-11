@@ -11,6 +11,7 @@ notifications using Google's Gemini AI model.
 
 import logging
 import re
+import time
 from typing import Optional, Dict, Any
 import google.generativeai as genai
 
@@ -72,6 +73,46 @@ class GeminiLLM:
             logger.error(f"✗ Gemini LLM initialization failed: {e}")
             self.enabled = False
             return False
+    
+    def _generate_with_retry(self, prompt: str, max_retries: int = 3, initial_delay: float = 2.0) -> Optional[str]:
+        """
+        Generate content with exponential backoff retry logic.
+        
+        Args:
+            prompt: The prompt to send to Gemini
+            max_retries: Maximum number of retry attempts (default: 3)
+            initial_delay: Initial delay in seconds between retries (default: 2.0)
+            
+        Returns:
+            Generated text or None on failure
+        """
+        last_error = None
+        delay = initial_delay
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.model.generate_content(prompt)
+                return response.text.strip()
+                
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                
+                # Don't retry on permanent errors
+                if any(perm in error_str for perm in ['invalid', 'unauthorized', 'forbidden', 'blocked']):
+                    logger.error(f"Gemini API permanent error: {e}")
+                    return None
+                
+                # Retry on transient errors (rate limit, network, timeout, etc.)
+                if attempt < max_retries - 1:
+                    logger.warning(f"Gemini API error (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.info(f"Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"Gemini API failed after {max_retries} attempts: {last_error}")
+        
+        return None
     
     def clean_description(self, description: str, max_length: int = 500) -> str:
         """
@@ -155,15 +196,17 @@ Description: {description[:500]}
 
 Create a concise summary that captures the main topic and would make people want to watch. Be enthusiastic but professional."""
 
-            response = self.model.generate_content(prompt)
-            summary = response.text.strip()
+            summary = self._generate_with_retry(prompt)
             
-            # Ensure length limit
-            if len(summary) > max_length:
-                summary = summary[:max_length-3] + "..."
+            if summary:
+                # Ensure length limit
+                if len(summary) > max_length:
+                    summary = summary[:max_length-3] + "..."
+                
+                logger.debug(f"Generated summary: {summary[:50]}...")
+                return summary
             
-            logger.debug(f"Generated summary: {summary[:50]}...")
-            return summary
+            return None
             
         except Exception as e:
             logger.error(f"Error generating summary: {e}")
@@ -194,11 +237,13 @@ Description: {description[:300]}
 
 Example format: #Tech #Gaming #Tutorial #AI #Programming"""
 
-            response = self.model.generate_content(prompt)
-            hashtags = response.text.strip()
+            hashtags = self._generate_with_retry(prompt)
             
-            logger.debug(f"Generated hashtags: {hashtags}")
-            return hashtags
+            if hashtags:
+                logger.debug(f"Generated hashtags: {hashtags}")
+                return hashtags
+            
+            return None
             
         except Exception as e:
             logger.error(f"Error generating hashtags: {e}")
@@ -348,8 +393,10 @@ Keep it under 280 characters, include the URL, and make it clickable.
 
 Write the post now:"""
 
-            response = self.model.generate_content(prompt)
-            notification = response.text.strip()
+            notification = self._generate_with_retry(prompt)
+            if not notification:
+                logger.warning(f"Failed to generate enhanced notification for {social_platform}, using fallback")
+                return None
             
             # Clean up common LLM meta-text patterns
             meta_patterns = [
@@ -395,9 +442,12 @@ Write the post now:"""
 Title: {title}
 Description: {description[:300]}"""
 
-            response = self.model.generate_content(prompt)
-            sentiment = response.text.strip().lower()
+            sentiment = self._generate_with_retry(prompt)
+            if not sentiment:
+                logger.warning("Failed to analyze sentiment, returning None")
+                return None
             
+            sentiment = sentiment.lower()
             logger.debug(f"Analyzed sentiment: {sentiment}")
             return sentiment
             
@@ -443,9 +493,12 @@ Filter out:
 
 Return ONLY "yes" or "no"."""
 
-            response = self.model.generate_content(prompt)
-            decision = response.text.strip().lower()
+            decision = self._generate_with_retry(prompt)
+            if not decision:
+                logger.warning("Failed to get LLM filtering decision, defaulting to notify")
+                return True
             
+            decision = decision.lower()
             should_notify = 'yes' in decision
             
             if not should_notify:
