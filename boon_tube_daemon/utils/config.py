@@ -390,9 +390,9 @@ def get_youtube_accounts() -> list:
                                 'discord_role': account.get('discord_role')  # Optional role ID
                             })
                         else:
-                            logger.warning(f"⚠ Invalid YouTube account config (missing username/channel_id): {account}")
+                            logger.warning(f"⚠ Invalid YouTube account config (missing username/channel_id)")
                     else:
-                        logger.warning(f"⚠ Invalid YouTube account config (not a dict): {account}")
+                        logger.warning(f"⚠ Invalid YouTube account config (not a dict)")
                 
                 if accounts:
                     logger.info(f"✓ Loaded {len(accounts)} YouTube account(s) from YOUTUBE_ACCOUNTS")
@@ -452,9 +452,11 @@ def get_bluesky_accounts() -> list:
                                 'name': account.get('name')  # Optional display name
                             })
                         else:
-                            logger.warning(f"⚠ Invalid Bluesky account config (missing handle/app_password): {account}")
+                            # Log only non-sensitive field to avoid exposing app_password
+                            handle = account.get('handle', 'unknown') if isinstance(account, dict) else 'unknown'
+                            logger.warning(f"⚠ Invalid Bluesky account config (missing handle/app_password): handle={handle}")
                     else:
-                        logger.warning(f"⚠ Invalid Bluesky account config (not a dict): {account}")
+                        logger.warning(f"⚠ Invalid Bluesky account config (not a dict)")
                 
                 if accounts:
                     logger.info(f"✓ Loaded {len(accounts)} Bluesky account(s) from BLUESKY_ACCOUNTS")
@@ -515,9 +517,11 @@ def get_mastodon_accounts() -> list:
                             })
                         else:
                             missing = [f for f in required if not account.get(f)]
-                            logger.warning(f"⚠ Invalid Mastodon account config (missing {missing}): {account}")
+                            # Log only non-sensitive field to avoid exposing secrets
+                            api_url = account.get('api_base_url', 'unknown') if isinstance(account, dict) else 'unknown'
+                            logger.warning(f"⚠ Invalid Mastodon account config (missing {missing}): api_base_url={api_url}")
                     else:
-                        logger.warning(f"⚠ Invalid Mastodon account config (not a dict): {account}")
+                        logger.warning(f"⚠ Invalid Mastodon account config (not a dict)")
                 
                 if accounts:
                     logger.info(f"✓ Loaded {len(accounts)} Mastodon account(s) from MASTODON_ACCOUNTS")
@@ -588,9 +592,12 @@ def get_matrix_accounts() -> list:
                                 'name': account.get('name')  # Optional display name
                             })
                         else:
-                            logger.warning(f"⚠ Invalid Matrix account config (missing required fields): {account}")
+                            # Log only non-sensitive fields to avoid exposing credentials
+                            hs = homeserver or 'unknown'
+                            rid = room_id or 'unknown'
+                            logger.warning(f"⚠ Invalid Matrix account config (missing required fields): homeserver={hs}, room_id={rid}")
                     else:
-                        logger.warning(f"⚠ Invalid Matrix account config (not a dict): {account}")
+                        logger.warning(f"⚠ Invalid Matrix account config (not a dict)")
                 
                 if accounts:
                     logger.info(f"✓ Loaded {len(accounts)} Matrix account(s) from MATRIX_ACCOUNTS")
