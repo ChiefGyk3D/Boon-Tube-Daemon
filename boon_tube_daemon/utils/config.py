@@ -351,3 +351,65 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     
     logger.debug(f"Secret not found: {section}.{key}")
     return default
+
+
+def get_youtube_accounts() -> list:
+    """
+    Get YouTube accounts configuration with backward compatibility.
+    
+    Supports two formats:
+    1. Legacy single account: YOUTUBE_USERNAME and/or YOUTUBE_CHANNEL_ID
+    2. Multi-account: YOUTUBE_ACCOUNTS JSON array
+    
+    Returns:
+        List of account dicts, each with keys: username, channel_id, name, discord_role
+        Example: [{"username": "@LTT", "discord_role": "123456", "name": "Linus Tech Tips"}]
+    """
+    import json
+    
+    accounts = []
+    
+    # Try new multi-account format first
+    accounts_json = get_config('YouTube', 'accounts')
+    if accounts_json:
+        try:
+            parsed_accounts = json.loads(accounts_json)
+            if isinstance(parsed_accounts, list):
+                for account in parsed_accounts:
+                    if isinstance(account, dict):
+                        # Validate that at least username or channel_id is present
+                        if account.get('username') or account.get('channel_id'):
+                            accounts.append({
+                                'username': account.get('username'),
+                                'channel_id': account.get('channel_id'),
+                                'name': account.get('name'),  # Optional display name
+                                'discord_role': account.get('discord_role')  # Optional role ID
+                            })
+                        else:
+                            logger.warning(f"⚠ Invalid YouTube account config (missing username/channel_id): {account}")
+                    else:
+                        logger.warning(f"⚠ Invalid YouTube account config (not a dict): {account}")
+                
+                if accounts:
+                    logger.info(f"✓ Loaded {len(accounts)} YouTube account(s) from YOUTUBE_ACCOUNTS")
+                    return accounts
+            else:
+                logger.warning(f"⚠ YOUTUBE_ACCOUNTS is not a JSON array")
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠ Failed to parse YOUTUBE_ACCOUNTS JSON: {e}")
+    
+    # Fallback to legacy single account format
+    username = get_config('YouTube', 'username')
+    channel_id = get_config('YouTube', 'channel_id')
+    
+    if username or channel_id:
+        legacy_account = {
+            'username': username,
+            'channel_id': channel_id,
+            'name': None,  # Will be auto-detected from YouTube
+            'discord_role': None  # Use default Discord role
+        }
+        accounts.append(legacy_account)
+        logger.info(f"✓ Using legacy single YouTube account configuration")
+    
+    return accounts

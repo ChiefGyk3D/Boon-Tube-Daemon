@@ -187,15 +187,26 @@ class DiscordPlatform:
             # Build content: LLM message + role mention
             content = message  # Start with the LLM-generated message
             
-            # Add role mention if configured for this platform
-            # Normalize platform name (strip suffixes like -videos, -livestreams)
-            platform_base = platform_name.lower().split('-')[0] if platform_name else None
-            if platform_base and platform_base in self.role_mentions:
-                role_id = self.role_mentions[platform_base]
-                content += f" <@&{role_id}>"
-            elif self.role_id:
-                # Use default role if no platform-specific role
-                content += f" <@&{self.role_id}>"
+            # Add role mention - priority order:
+            # 1. Channel-specific role (from stream_data['discord_role'] for multi-account YouTube)
+            # 2. Platform-specific role (from self.role_mentions)
+            # 3. Default role (from self.role_id)
+            role_added = False
+            if stream_data and stream_data.get('discord_role'):
+                # Use channel-specific role (e.g., for different YouTube channels)
+                content += f" <@&{stream_data['discord_role']}>"
+                role_added = True
+            else:
+                # Normalize platform name (strip suffixes like -videos, -livestreams)
+                platform_base = platform_name.lower().split('-')[0] if platform_name else None
+                if platform_base and platform_base in self.role_mentions:
+                    role_id = self.role_mentions[platform_base]
+                    content += f" <@&{role_id}>"
+                    role_added = True
+                elif self.role_id:
+                    # Use default role if no platform-specific or channel-specific role
+                    content += f" <@&{self.role_id}>"
+                    role_added = True
             
             # Build webhook payload
             data = {}
