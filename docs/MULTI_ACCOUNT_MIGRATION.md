@@ -4,13 +4,40 @@ This guide explains how to upgrade from single-account to multi-account YouTube 
 
 ## Overview
 
-The multi-account feature allows you to monitor multiple YouTube channels simultaneously, each with its own optional Discord role for notifications.
+The multi-account feature allows you to monitor multiple YouTube channels simultaneously, each with its own optional Discord configuration (role, webhook, or both).
 
 **Key Features:**
 - Monitor unlimited YouTube channels
-- Assign different Discord roles per channel
+- **Assign different Discord roles per channel** (mention different groups)
+- **Post to different Discord channels/servers per YouTube channel** (via webhooks)
+- **Mix and match**: Some channels share webhooks, others use dedicated ones
 - Backward compatible - existing configs work without changes
 - Drop-in upgrade - no breaking changes
+
+## Real-World Use Cases
+
+### Use Case 1: Multi-Server Bot
+You run a bot that serves multiple Discord servers. Each server wants notifications for different YouTube creators:
+- Server A wants announcements for Creator 1 in their #videos channel
+- Server B wants announcements for Creator 2 in their #announcements channel
+- Server C wants both creators but in separate channels
+
+**Solution:** Use per-channel `discord_webhook` to route each creator to the right server/channel.
+
+### Use Case 2: Role-Based Notifications in One Server
+Your Discord server monitors multiple creators, and members can opt-in to specific creators:
+- @LinusTechTips role for LTT fans
+- @MKBHD role for Marques fans
+- @VeritasiumFans role for science enthusiasts
+
+**Solution:** Use per-channel `discord_role` to mention the right group for each creator.
+
+### Use Case 3: Mixed Configuration
+You have a main server (#youtube-uploads) for all creators, but one popular creator gets their own dedicated channel:
+- 5 creators → Post to #youtube-uploads with @AllVideos role
+- VIP creator → Post to #vip-creator with @VIPFans role
+
+**Solution:** Set default webhook for most channels, override with `discord_webhook` for the VIP channel.
 
 ## Backward Compatibility
 
@@ -140,7 +167,31 @@ Simple monitoring without Discord role mentions.
 YOUTUBE_ACCOUNTS=[{"channel_id":"UCXuqSBlHAE6Xw-yeJA0Tunw","name":"LTT Main","discord_role":"111111111"},{"channel_id":"UCddiUEpeqJcYeBxX1IVBKvQ","name":"LTT ShortCircuit","discord_role":"222222222"},{"channel_id":"UC0vBXGSyV14uvJ4hECDOl0Q","name":"LTT TechLinked","discord_role":"333333333"}]
 ```
 
-## Discord Role Configuration
+### Example 6: Different Discord Servers/Channels per YouTube Channel
+
+**Use Case:** Post tech videos to #tech-news channel, gaming videos to #gaming-announcements channel
+
+```bash
+# Tech channel posts to #tech-news webhook
+# Gaming channel posts to #gaming-announcements webhook
+YOUTUBE_ACCOUNTS=[{"username":"@TechChannel","discord_webhook":"https://discord.com/api/webhooks/111111/xxxTECHxxx","discord_role":"123456"},{"username":"@GamingChannel","discord_webhook":"https://discord.com/api/webhooks/222222/yyyGAMEyyy","discord_role":"789012"}]
+```
+
+Each YouTube channel posts to a completely different Discord channel or even different server!
+
+### Example 7: Mix Everything - Different Servers, Roles, and Channels
+
+**Use Case:** Multi-server bot posting different creators to different communities
+
+```bash
+YOUTUBE_ACCOUNTS=[{"username":"@Creator1","discord_webhook":"https://discord.com/api/webhooks/111/aaa","discord_role":"100"},{"username":"@Creator2","discord_webhook":"https://discord.com/api/webhooks/222/bbb","discord_role":"200"},{"username":"@Creator3","discord_role":"300"}]
+```
+
+- Creator1 → Posts to Server A's #creator1-videos with @Creator1Fans role
+- Creator2 → Posts to Server B's #announcements with @Subscribers role  
+- Creator3 → Posts to default webhook with @Creator3 role
+
+## Discord Webhook & Role Configuration
 
 ### Finding Discord Role IDs
 
@@ -150,6 +201,14 @@ YOUTUBE_ACCOUNTS=[{"channel_id":"UCXuqSBlHAE6Xw-yeJA0Tunw","name":"LTT Main","di
 2. Right-click the role in Server Settings → Roles
 3. Click "Copy ID"
 
+### Priority Order for Webhooks
+
+When posting a new video, Discord webhooks are selected in this priority order:
+
+1. **Channel-specific webhook** (from `YOUTUBE_ACCOUNTS[].discord_webhook`)
+2. **Platform-specific webhook** (from `DISCORD_WEBHOOK_YOUTUBE`)
+3. **Default webhook** (from `DISCORD_WEBHOOK_URL`)
+
 ### Priority Order for Role Mentions
 
 When a new video is posted, Discord role mentions follow this priority:
@@ -158,22 +217,25 @@ When a new video is posted, Discord role mentions follow this priority:
 2. **Platform-specific role** (from `DISCORD_ROLE_YOUTUBE`)
 3. **Default role** (from `DISCORD_ROLE`)
 
-Example:
+### Complete Example - All Priority Levels
+
 ```bash
-# Default role for all platforms
+# Default webhook and role (used by all platforms unless overridden)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/000/default
 DISCORD_ROLE=999999999
 
-# YouTube-specific role (overrides default for YouTube)
+# YouTube-specific webhook and role (overrides defaults for all YouTube channels)
+DISCORD_WEBHOOK_YOUTUBE=https://discord.com/api/webhooks/111/youtube
 DISCORD_ROLE_YOUTUBE=888888888
 
-# Per-channel roles (override both default and platform-specific)
-YOUTUBE_ACCOUNTS=[{"username":"@MainChannel","discord_role":"777777777"}]
+# Per-channel webhooks and roles (override all defaults and platform-specific)
+YOUTUBE_ACCOUNTS=[{"username":"@SpecialChannel","discord_webhook":"https://discord.com/api/webhooks/222/special","discord_role":"777777777"},{"username":"@RegularChannel"}]
 ```
 
-Result:
-- Main Channel videos mention role `777777777`
-- Other YouTube channels mention role `888888888`
-- Non-YouTube platforms mention role `999999999`
+**Result:**
+- **Special Channel** videos → Webhook `222/special` with role `777777777` (channel-specific overrides)
+- **Regular Channel** videos → Webhook `111/youtube` with role `888888888` (YouTube-specific)
+- **TikTok/other platforms** → Webhook `000/default` with role `999999999` (defaults)
 
 ## API Quota Considerations
 

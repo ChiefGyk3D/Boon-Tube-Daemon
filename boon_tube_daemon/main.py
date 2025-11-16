@@ -206,11 +206,14 @@ class BoonTubeDaemon:
                     logger.warning(f"   ⚠ Failed to generate message for {social.name}, skipping...")
                     continue
                 
-                # Prepare stream_data with account info (includes discord_role for multi-account)
+                # Prepare stream_data with account info (includes discord_role and discord_webhook for multi-account)
                 stream_data = video_data.copy()
                 account = video_data.get('account', {})
-                if account and account.get('discord_role'):
-                    stream_data['discord_role'] = account['discord_role']
+                if account:
+                    if account.get('discord_role'):
+                        stream_data['discord_role'] = account['discord_role']
+                    if account.get('discord_webhook'):
+                        stream_data['discord_webhook'] = account['discord_webhook']
                 
                 result = social.post(
                     message=message,
