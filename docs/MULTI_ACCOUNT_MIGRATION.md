@@ -375,6 +375,177 @@ YOUTUBE_ACCOUNTS=[{"username":"@Test"},]  # Trailing comma
 2. Reduce number of monitored channels
 3. Use `channel_id` instead of `username` (saves 1 API unit per check)
 
+---
+
+## Multi-Account Social Platform Support
+
+In addition to multi-account YouTube monitoring, you can also configure multiple accounts for Bluesky, Mastodon, and Matrix platforms.
+
+### Bluesky Multi-Account
+
+**Use Cases:**
+- Post to both personal and project accounts
+- Cross-post to multiple Bluesky accounts
+- Separate accounts for different content types
+
+**Configuration Example:**
+```bash
+BLUESKY_ENABLE_POSTING=true
+BLUESKY_ACCOUNTS='[
+  {
+    "handle": "personal.bsky.social",
+    "app_password": "xxxx-xxxx-xxxx-xxxx",
+    "name": "Personal"
+  },
+  {
+    "handle": "project.bsky.social",
+    "app_password": "yyyy-yyyy-yyyy-yyyy",
+    "name": "Project Updates"
+  }
+]'
+```
+
+**Backward Compatible:** Existing single-account configs continue working:
+```bash
+BLUESKY_ENABLE_POSTING=true
+BLUESKY_HANDLE=yourhandle.bsky.social
+BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+### Mastodon Multi-Instance
+
+**Use Cases:**
+- Cross-post to multiple Mastodon instances (mastodon.social, fosstodon.org, etc.)
+- Post to both personal and organizational accounts
+- Reach different communities across the fediverse
+
+**Configuration Example:**
+```bash
+MASTODON_ENABLE_POSTING=true
+MASTODON_ACCOUNTS='[
+  {
+    "api_base_url": "https://mastodon.social",
+    "client_id": "your_client_id_1",
+    "client_secret": "your_client_secret_1",
+    "access_token": "your_access_token_1",
+    "name": "Mastodon Social"
+  },
+  {
+    "api_base_url": "https://fosstodon.org",
+    "client_id": "your_client_id_2",
+    "client_secret": "your_client_secret_2",
+    "access_token": "your_access_token_2",
+    "name": "Fosstodon"
+  }
+]'
+```
+
+**Backward Compatible:** Existing single-account configs continue working:
+```bash
+MASTODON_ENABLE_POSTING=true
+MASTODON_API_BASE_URL=https://mastodon.social
+MASTODON_CLIENT_ID=your_client_id
+MASTODON_CLIENT_SECRET=your_client_secret
+MASTODON_ACCESS_TOKEN=your_access_token
+```
+
+### Matrix Multi-Room/Multi-Homeserver
+
+**Use Cases:**
+- Post to multiple rooms on the same homeserver
+- Post to rooms on different homeservers
+- Separate accounts for different projects/communities
+
+**Configuration Example (Access Token Method):**
+```bash
+MATRIX_ENABLE_POSTING=true
+MATRIX_ACCOUNTS='[
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!roomid1:matrix.org",
+    "access_token": "your_token_1",
+    "name": "Main Room"
+  },
+  {
+    "homeserver": "https://chat.mydomain.com",
+    "room_id": "!roomid2:chat.mydomain.com",
+    "access_token": "your_token_2",
+    "name": "Self-Hosted Server"
+  }
+]'
+```
+
+**Configuration Example (Username/Password Method with Auto-Rotation):**
+```bash
+MATRIX_ENABLE_POSTING=true
+MATRIX_ACCOUNTS='[
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!roomid1:matrix.org",
+    "username": "@botuser:matrix.org",
+    "password": "bot_password",
+    "name": "Main Bot"
+  }
+]'
+```
+
+**Note:** If both `access_token` and `username`/`password` are provided for an account, username/password takes precedence (preferred for auto-rotation).
+
+**Backward Compatible:** Existing single-account configs continue working:
+```bash
+MATRIX_ENABLE_POSTING=true
+MATRIX_HOMESERVER=https://matrix.org
+MATRIX_ROOM_ID=!yourroom:matrix.org
+MATRIX_ACCESS_TOKEN=your_token
+# OR
+MATRIX_USERNAME=@botuser:matrix.org
+MATRIX_PASSWORD=bot_password
+```
+
+### Social Platform Logging
+
+With multi-account social platforms, logs show which accounts receive posts:
+
+```
+✓ Bluesky: Authenticated Personal
+✓ Bluesky: Authenticated Project Updates
+✓ Bluesky authenticated for 2 account(s)
+
+✓ Mastodon: Authenticated Mastodon Social
+✓ Mastodon: Authenticated Fosstodon
+✓ Mastodon authenticated for 2 account(s)
+
+✓ Matrix: Authenticated Main Room
+✓ Matrix: Authenticated Self-Hosted Server
+✓ Matrix authenticated for 2 account(s)
+
+[New video detected]
+✓ Bluesky: Posted to Personal
+✓ Bluesky: Posted to Project Updates
+✓ Mastodon: Posted to Mastodon Social
+✓ Mastodon: Posted to Fosstodon
+✓ Matrix: Posted to Main Room
+✓ Matrix: Posted to Self-Hosted Server
+```
+
+### Error Handling
+
+If one account fails, others continue:
+
+```
+✓ Bluesky: Authenticated Personal
+✗ Bluesky authentication failed for Project Updates: Invalid credentials
+✓ Bluesky authenticated for 1 account(s)
+
+[New video detected]
+✓ Bluesky: Posted to Personal
+✗ Bluesky post failed for Project Updates: Not authenticated
+```
+
+The daemon continues running even if some accounts fail authentication or posting.
+
+---
+
 ## Rollback
 
 If you need to revert to single-account:

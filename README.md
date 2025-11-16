@@ -13,6 +13,7 @@ Monitor YouTube channels for new video uploads and automatically post unique, AI
 - 📺 **YouTube Monitoring**: Detect new video uploads using YouTube Data API v3
   - **Multi-account support**: Monitor unlimited YouTube channels simultaneously
   - **Per-channel Discord roles**: Assign different roles for each channel
+  - **Per-channel Discord webhooks**: Route channels to different servers/channels
   - Filters livestreams (only notifies for actual video uploads)
   - Supports regular videos and YouTube Shorts
   - Configurable check interval
@@ -27,7 +28,9 @@ Monitor YouTube channels for new video uploads and automatically post unique, AI
   
 - 📢 **Multi-Platform Notifications**: Post to multiple social platforms simultaneously
   - **Discord**: Rich embeds with platform-specific roles and webhooks
-  - **Matrix**: Professional messaging with auto token rotation
+  - **Bluesky**: Multi-account cross-posting with rich text and embed cards
+  - **Mastodon**: Multi-instance support for cross-posting across fediverse
+  - **Matrix**: Multi-room/multi-homeserver support with auto token rotation
   - **Bluesky**: ATProto integration with rich text and clickable links
   - **Mastodon**: Full API support with media attachments
   
