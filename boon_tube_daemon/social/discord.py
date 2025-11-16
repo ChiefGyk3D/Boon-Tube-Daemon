@@ -91,9 +91,17 @@ class DiscordPlatform:
         if not self.enabled:
             return None
         
-        # Determine which webhook to use for this platform
+        # Determine which webhook to use - priority order:
+        # 1. Channel-specific webhook (from stream_data['discord_webhook'] for multi-account YouTube)
+        # 2. Platform-specific webhook (from self.webhook_urls)
+        # 3. Default webhook (from self.webhook_url)
         webhook_url = None
-        if platform_name and platform_name.lower() in self.webhook_urls:
+        
+        if stream_data and stream_data.get('discord_webhook'):
+            # Use channel-specific webhook (e.g., different Discord server/channel per YouTube channel)
+            webhook_url = stream_data['discord_webhook']
+            logger.debug(f"Using channel-specific webhook for {platform_name}")
+        elif platform_name and platform_name.lower() in self.webhook_urls:
             # Use platform-specific webhook if available
             webhook_url = self.webhook_urls[platform_name.lower()]
         else:
