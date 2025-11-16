@@ -15,7 +15,8 @@ import time
 from typing import Optional, Dict, Any
 import google.generativeai as genai
 
-from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config
+from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config, get_int_config
+from boon_tube_daemon.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class GeminiLLM:
         self.enabled = False
         self.model = None
         self.api_key = None
+        self.rate_limiter = None
         
     def authenticate(self) -> bool:
         """
@@ -65,8 +67,14 @@ class GeminiLLM:
             model_name = get_config('LLM', 'model', default='gemini-2.5-flash-lite')
             self.model = genai.GenerativeModel(model_name)
             
+            # Initialize rate limiter
+            # Gemini Free Tier: 15 requests per minute
+            # https://ai.google.dev/pricing#1_5flash
+            rate_limit = get_int_config('LLM', 'rate_limit', default=15)
+            self.rate_limiter = RateLimiter(max_requests=rate_limit, time_window=60.0)
+            
             self.enabled = True
-            logger.info(f"✓ Gemini LLM initialized ({model_name})")
+            logger.info(f"✓ Gemini LLM initialized ({model_name}, {rate_limit} req/min)")
             return True
             
         except Exception as e:
@@ -76,7 +84,7 @@ class GeminiLLM:
     
     def _generate_with_retry(self, prompt: str, max_retries: int = 3, initial_delay: float = 2.0) -> Optional[str]:
         """
-        Generate content with exponential backoff retry logic.
+        Generate content with exponential backoff retry logic and rate limiting.
         
         Args:
             prompt: The prompt to send to Gemini
@@ -91,6 +99,18 @@ class GeminiLLM:
         
         for attempt in range(max_retries):
             try:
+                # Acquire rate limit token before making API call
+                if self.rate_limiter:
+                    wait_time = self.rate_limiter.get_wait_time()
+                    if wait_time > 0:
+                        logger.debug(f"⏱ Rate limit: waiting {wait_time:.1f}s before API call...")
+                    
+                    # Acquire token (will block if rate limit reached)
+                    if not self.rate_limiter.acquire(timeout=30.0):
+                        logger.error("Rate limit token acquisition timeout after 30s")
+                        return None
+                
+                # Make API call
                 response = self.model.generate_content(prompt)
                 return response.text.strip()
                 
