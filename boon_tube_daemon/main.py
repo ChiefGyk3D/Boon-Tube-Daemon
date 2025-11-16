@@ -26,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import configuration
-from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config
+from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
 
 # Import media platforms
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
@@ -179,13 +179,25 @@ class BoonTubeDaemon:
                 logger.info("   🚫 Skipped by LLM filter")
                 return
         
+        # Get platform delay for request spacing (prevents rate limit hammering)
+        platform_delay = get_float_config('LLM', 'platform_delay', default=2.0)
+        
         # Post to all social platforms (each gets a unique message)
-        for social in self.social_platforms:
+        for idx, social in enumerate(self.social_platforms):
             try:
+                # Add delay between platforms (except first one) to space out LLM requests
+                if idx > 0 and platform_delay > 0:
+                    logger.debug(f"   ⏱ Waiting {platform_delay}s before next platform...")
+                    time.sleep(platform_delay)
+                
                 logger.info(f"   📤 Posting to {social.name}...")
                 
                 # Generate platform-specific message
                 message = self.format_notification(platform, video_data, social.name)
+                
+                if not message:
+                    logger.warning(f"   ⚠ Failed to generate message for {social.name}, skipping...")
+                    continue
                 
                 result = social.post(
                     message=message,
@@ -198,6 +210,8 @@ class BoonTubeDaemon:
                     logger.warning(f"   ✗ Failed to post to {social.name}")
             except Exception as e:
                 logger.error(f"   ✗ Error posting to {social.name}: {e}")
+                logger.exception("Detailed traceback:")
+                # Continue to next platform even on error
     
     def format_notification(self, platform, video_data: Dict, social_platform_name: str = None) -> str:
         """
@@ -218,14 +232,20 @@ class BoonTubeDaemon:
         # Try LLM-enhanced notification (platform-specific)
         if self.llm and self.llm.enabled and get_bool_config('LLM', 'enhance_notifications', default=False):
             if social_platform_name:
-                enhanced_message = self.llm.enhance_notification(
-                    video_data, 
-                    platform.name,
-                    social_platform_name
-                )
-                if enhanced_message:
-                    logger.info(f"   ✨ Using LLM-enhanced {social_platform_name} post")
-                    return enhanced_message
+                try:
+                    enhanced_message = self.llm.enhance_notification(
+                        video_data, 
+                        platform.name,
+                        social_platform_name
+                    )
+                    if enhanced_message:
+                        logger.info(f"   ✨ Using LLM-enhanced {social_platform_name} post")
+                        return enhanced_message
+                    else:
+                        logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
+                except Exception as e:
+                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}: {e}")
+                    logger.debug("Falling back to template-based notification")
         
         # Fall back to template-based notification
         template = get_config('Settings', 'notification_template', 

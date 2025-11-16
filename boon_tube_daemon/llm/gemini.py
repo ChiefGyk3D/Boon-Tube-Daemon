@@ -15,7 +15,8 @@ import time
 from typing import Optional, Dict, Any
 import google.generativeai as genai
 
-from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config
+from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config, get_int_config
+from boon_tube_daemon.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class GeminiLLM:
         self.enabled = False
         self.model = None
         self.api_key = None
+        self.rate_limiter = None
         
     def authenticate(self) -> bool:
         """
@@ -65,8 +67,14 @@ class GeminiLLM:
             model_name = get_config('LLM', 'model', default='gemini-2.5-flash-lite')
             self.model = genai.GenerativeModel(model_name)
             
+            # Initialize rate limiter
+            # Gemini Free Tier: 15 requests per minute
+            # https://ai.google.dev/pricing#1_5flash
+            rate_limit = get_int_config('LLM', 'rate_limit', default=15)
+            self.rate_limiter = RateLimiter(max_requests=rate_limit, time_window=60.0)
+            
             self.enabled = True
-            logger.info(f"✓ Gemini LLM initialized ({model_name})")
+            logger.info(f"✓ Gemini LLM initialized ({model_name}, {rate_limit} req/min)")
             return True
             
         except Exception as e:
@@ -76,7 +84,7 @@ class GeminiLLM:
     
     def _generate_with_retry(self, prompt: str, max_retries: int = 3, initial_delay: float = 2.0) -> Optional[str]:
         """
-        Generate content with exponential backoff retry logic.
+        Generate content with exponential backoff retry logic and rate limiting.
         
         Args:
             prompt: The prompt to send to Gemini
@@ -91,6 +99,18 @@ class GeminiLLM:
         
         for attempt in range(max_retries):
             try:
+                # Acquire rate limit token before making API call
+                if self.rate_limiter:
+                    wait_time = self.rate_limiter.get_wait_time()
+                    if wait_time > 0:
+                        logger.debug(f"⏱ Rate limit: waiting {wait_time:.1f}s before API call...")
+                    
+                    # Acquire token (will block if rate limit reached)
+                    if not self.rate_limiter.acquire(timeout=30.0):
+                        logger.error("Rate limit token acquisition timeout after 30s")
+                        return None
+                
+                # Make API call
                 response = self.model.generate_content(prompt)
                 return response.text.strip()
                 
@@ -339,6 +359,8 @@ Matrix-specific guidelines:
 Write the announcement now WITHOUT including any URLs:"""
 
             elif social_platform_lower == 'bluesky':
+                # Bluesky has 300 char limit. YouTube URLs are ~43 chars, so leave room
+                # 300 total - 43 URL - 2 newlines = 255 chars for content
                 prompt = f"""Create an engaging Bluesky post for this new {platform_name} video.
 
 Title: {title}
@@ -348,18 +370,20 @@ Style: {post_style}
 {style_instruction}
 
 Bluesky-specific guidelines:
-- CRITICAL: ABSOLUTE MAXIMUM 300 characters TOTAL (Bluesky will reject anything longer)
-- Count EVERY character including spaces, emojis, URL, and hashtags
+- CRITICAL: Stay under 255 characters (URL will be added separately, Bluesky limit is 300 total)
+- Count EVERY character including spaces, emojis, and hashtags
 - NO platform greetings like "Hey Bluesky!" - wastes precious characters
 - NO meta text like "Here's a post:" or "Bluesky draft:" - just write the actual post
 - NO placeholder URLs like "youtube.com/watch/example" or "[YouTube Link]" - the actual URL will be added automatically
 - Include 2-3 SHORT hashtags (#Linux not #LinuxForBeginners)
 - Put hashtags at the end
-- Keep main text to ~250 chars to leave room for hashtags
+- Keep main text to ~220 chars to leave room for hashtags
 
-Write ONLY the post content WITHOUT any URLs (must be under 300 chars total):"""
+Write ONLY the post content WITHOUT any URLs (must be under 255 chars):"""
 
             elif social_platform_lower == 'mastodon':
+                # Mastodon has 500 char limit. YouTube URLs are ~43 chars, so leave room
+                # 500 total - 43 URL - 2 newlines = 455 chars for content
                 prompt = f"""Create an engaging Mastodon toot for this new {platform_name} video.
 
 Title: {title}
@@ -369,15 +393,15 @@ Style: {post_style}
 {style_instruction}
 
 Mastodon-specific guidelines:
-- CRITICAL: ABSOLUTE MAXIMUM 500 characters TOTAL (Mastodon will reject anything longer)
+- CRITICAL: Stay under 455 characters (URL will be added separately, Mastodon limit is 500 total)
 - Count EVERY character including spaces, hashtags, punctuation
 - NO platform greetings like "Hey Mastodon!" - wastes characters
 - NO placeholder URLs like "YOUR_VIDEO_ID" - the actual URL will be added automatically
 - Include 3-5 SHORT hashtags at the end (#Linux not #LinuxForBeginners)
-- Keep main text to ~380 chars MAX to leave room for hashtags (URL added separately)
-- If style is 'detailed', be comprehensive but STAY UNDER 500 chars total
+- Keep main text to ~380 chars to leave room for hashtags
+- If style is 'detailed', be comprehensive but STAY UNDER 455 chars
 
-Write the toot now WITHOUT including any URLs (MUST be under 500 chars total):"""
+Write the toot now WITHOUT including any URLs (MUST be under 455 chars):"""
 
             else:
                 # Fallback for unknown platforms
