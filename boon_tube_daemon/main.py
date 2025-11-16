@@ -169,8 +169,14 @@ class BoonTubeDaemon:
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
+        # Extract account info if present (for multi-account YouTube)
+        account = video_data.get('account', {})
+        channel_name = account.get('name', platform.name)
+        
         logger.info(f"\n🎉 NEW VIDEO DETECTED!")
         logger.info(f"   Platform: {platform.name}")
+        if account:
+            logger.info(f"   Channel: {channel_name}")
         logger.info(f"   Title: {video_data.get('title')}")
         logger.info(f"   URL: {video_data.get('url')}")
         
@@ -200,10 +206,16 @@ class BoonTubeDaemon:
                     logger.warning(f"   ⚠ Failed to generate message for {social.name}, skipping...")
                     continue
                 
+                # Prepare stream_data with account info (includes discord_role for multi-account)
+                stream_data = video_data.copy()
+                account = video_data.get('account', {})
+                if account and account.get('discord_role'):
+                    stream_data['discord_role'] = account['discord_role']
+                
                 result = social.post(
                     message=message,
                     platform_name=platform.name.lower(),
-                    stream_data=video_data
+                    stream_data=stream_data
                 )
                 if result:
                     logger.info(f"   ✓ Posted to {social.name}")

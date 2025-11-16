@@ -15,53 +15,73 @@ from typing import Optional, Tuple
 
 from googleapiclient.discovery import build
 
-from boon_tube_daemon.utils.config import get_config, get_secret
+from boon_tube_daemon.utils.config import get_config, get_secret, get_youtube_accounts
 from boon_tube_daemon.media.base import MediaPlatform
 
 logger = logging.getLogger(__name__)
 
 
 class YouTubeVideosPlatform(MediaPlatform):
-    """YouTube platform for monitoring new video uploads."""
+    """YouTube platform for monitoring new video uploads (supports multiple accounts)."""
     
     def __init__(self):
         super().__init__("YouTube-Videos")
         self.client = None
-        self.channel_id = None
-        self.username = None
+        self.accounts = []  # List of account configs with channel_id, username, name, discord_role
         self.quota_exceeded = False
         self.quota_exceeded_time = None
         self.consecutive_errors = 0
         self.max_consecutive_errors = 5
-        self.last_video_id = None
+        self.last_video_ids = {}  # Dict mapping channel_id -> last_video_id
         
     def authenticate(self) -> bool:
-        """Authenticate with YouTube API."""
+        """Authenticate with YouTube API and load account configurations."""
         try:
             api_key = get_secret('YouTube', 'api_key')
-            self.username = get_config('YouTube', 'username')
-            self.channel_id = get_config('YouTube', 'channel_id')
             
             if not api_key:
                 logger.warning("✗ YouTube API key not found")
                 return False
-                
-            if not self.username and not self.channel_id:
-                logger.warning("✗ YouTube username or channel_id not configured")
+            
+            # Load account configurations (supports both legacy single and new multi-account)
+            account_configs = get_youtube_accounts()
+            
+            if not account_configs:
+                logger.warning("✗ No YouTube accounts configured")
                 return False
                 
             self.client = build('youtube', 'v3', developerKey=api_key)
             
-            # If channel_id not provided, look it up by username/handle
-            if not self.channel_id:
-                self.channel_id = self._get_channel_id_from_username()
-                if not self.channel_id:
-                    logger.warning(f"✗ Could not find YouTube channel for username: {self.username}")
-                    return False
+            # Resolve channel IDs for all accounts
+            for account in account_configs:
+                channel_id = account.get('channel_id')
+                username = account.get('username')
+                
+                # If channel_id not provided, look it up by username/handle
+                if not channel_id and username:
+                    channel_id = self._get_channel_id_from_username(username)
+                    if not channel_id:
+                        logger.warning(f"✗ Could not find YouTube channel for username: {username}")
+                        continue
+                    account['channel_id'] = channel_id
+                
+                if channel_id:
+                    # Fetch channel name if not provided
+                    if not account.get('name'):
+                        channel_name = self._get_channel_name(channel_id)
+                        account['name'] = channel_name or channel_id
+                    
+                    self.accounts.append(account)
+                    self.last_video_ids[channel_id] = None
+                    logger.info(f"✓ YouTube: Monitoring {account['name']} (ID: {channel_id[:15]}...)")
+            
+            if not self.accounts:
+                logger.warning("✗ No valid YouTube accounts could be initialized")
+                return False
             
             self.enabled = True
             self.consecutive_errors = 0
-            logger.info(f"✓ YouTube Videos authenticated for channel: {self.channel_id}")
+            logger.info(f"✓ YouTube Videos authenticated for {len(self.accounts)} account(s)")
             return True
             
         except Exception as e:
@@ -69,10 +89,10 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.enabled = False
             return False
     
-    def _get_channel_id_from_username(self) -> Optional[str]:
+    def _get_channel_id_from_username(self, username: str) -> Optional[str]:
         """Convert username/handle to channel ID."""
         try:
-            lookup_username = self.username if self.username.startswith('@') else f'@{self.username}'
+            lookup_username = username if username.startswith('@') else f'@{username}'
             
             # Try modern handle format first (@username)
             try:
@@ -89,11 +109,11 @@ class YouTubeVideosPlatform(MediaPlatform):
                 logger.debug(f"Handle lookup failed for {lookup_username}: {e}")
             
             # Try legacy username
-            if not self.username.startswith('@'):
+            if not username.startswith('@'):
                 try:
                     request = self.client.channels().list(
                         part="id",
-                        forUsername=self.username
+                        forUsername=username
                     )
                     response = request.execute()
                     if response.get('items'):
@@ -101,7 +121,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                         logger.info(f"✓ Resolved YouTube channel ID: {channel_id}")
                         return channel_id
                 except Exception as e:
-                    logger.debug(f"Username lookup failed for {self.username}: {e}")
+                    logger.debug(f"Username lookup failed for {username}: {e}")
             
             return None
             
@@ -109,12 +129,27 @@ class YouTubeVideosPlatform(MediaPlatform):
             logger.error(f"Error resolving YouTube channel ID: {e}")
             return None
     
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def _get_channel_name(self, channel_id: str) -> Optional[str]:
+        """Get the channel title/name from channel ID."""
+        try:
+            request = self.client.channels().list(
+                part="snippet",
+                id=channel_id
+            )
+            response = request.execute()
+            if response.get('items'):
+                return response['items'][0]['snippet'].get('title')
+            return None
+        except Exception as e:
+            logger.debug(f"Error fetching channel name for {channel_id}: {e}")
+            return None
+    
+    def get_latest_video_for_channel(self, channel_id: str) -> Tuple[bool, Optional[dict]]:
         """
-        Get the latest video from a YouTube channel.
+        Get the latest video from a specific YouTube channel.
         
         Args:
-            username: Optional username/handle to check
+            channel_id: YouTube channel ID to check
             
         Returns:
             Tuple of (success, video_data)
@@ -134,31 +169,20 @@ class YouTubeVideosPlatform(MediaPlatform):
                     self.quota_exceeded_time = None
                     self.consecutive_errors = 0
         
-        # Determine which channel to check
-        channel_id_to_check = None
-        
-        if username and username != self.username:
-            channel_id_to_check = self._resolve_channel_id(username)
-            if not channel_id_to_check:
-                logger.warning(f"Could not resolve YouTube channel ID for: {username}")
-                return False, None
-        else:
-            channel_id_to_check = self.channel_id
-        
-        if not channel_id_to_check:
-            logger.error("No YouTube channel ID available")
+        if not channel_id:
+            logger.error("No YouTube channel ID provided")
             return False, None
         
         try:
             # Get channel's uploads playlist (1 unit)
             request = self.client.channels().list(
                 part="contentDetails",
-                id=channel_id_to_check
+                id=channel_id
             )
             response = request.execute()
             
             if not response.get('items'):
-                logger.debug(f"No YouTube channel found for ID: {channel_id_to_check}")
+                logger.debug(f"No YouTube channel found for ID: {channel_id}")
                 return False, None
             
             uploads_playlist_id = response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
@@ -237,35 +261,48 @@ class YouTubeVideosPlatform(MediaPlatform):
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
-        Check if there's a new video since last check.
+        Check all configured YouTube accounts for new videos.
         
         Args:
-            username: YouTube username to check
+            username: Ignored (kept for backward compatibility)
             
         Returns:
-            Tuple of (is_new, video_data) - is_new is True only if video is newer than last check
+            Tuple of (is_new, video_data_with_account_info) - is_new is True if ANY account has new video
+            video_data includes 'account' key with account config (channel_id, name, discord_role)
         """
-        success, video_data = self.get_latest_video(username)
-        
-        if not success or not video_data:
+        if not self.enabled or not self.client:
             return False, None
         
-        current_video_id = video_data.get('video_id')
+        # Check all accounts for new videos
+        for account in self.accounts:
+            channel_id = account['channel_id']
+            
+            # Get latest video for this channel
+            success, video_data = self.get_latest_video_for_channel(channel_id)
+            
+            if not success or not video_data:
+                continue
+            
+            current_video_id = video_data.get('video_id')
+            
+            # Check if this is a new video for this channel
+            if self.last_video_ids[channel_id] is None:
+                # First run for this channel - don't notify, just track
+                logger.info(f"📹 YouTube: Initialized tracking for {account['name']}")
+                self.last_video_ids[channel_id] = current_video_id
+                continue
+            
+            if current_video_id != self.last_video_ids[channel_id]:
+                # New video detected for this channel!
+                logger.info(f"🎬 YouTube ({account['name']}): New video: {video_data.get('title')[:50]}...")
+                self.last_video_ids[channel_id] = current_video_id
+                
+                # Add account info to video_data
+                video_data['account'] = account
+                
+                return True, video_data
         
-        # Check if this is a new video
-        if self.last_video_id is None:
-            # First run - don't notify, just track
-            logger.info(f"📹 YouTube: Initialized tracking for channel")
-            self.last_video_id = current_video_id
-            return False, None
-        
-        if current_video_id != self.last_video_id:
-            # New video detected!
-            logger.info(f"🎬 YouTube: New video: {video_data.get('title')[:50]}...")
-            self.last_video_id = current_video_id
-            return True, video_data
-        
-        # Same video as before
+        # No new videos on any channel
         return False, None
     
     def _resolve_channel_id(self, username: str) -> Optional[str]:
