@@ -144,6 +144,33 @@ class YouTubeVideosPlatform(MediaPlatform):
             logger.debug(f"Error fetching channel name for {channel_id}: {e}")
             return None
     
+    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+        """
+        Get the latest video from the first configured channel (for backward compatibility).
+        
+        This method exists to satisfy the MediaPlatform base class abstract method.
+        For multi-account monitoring, use check_for_new_video() instead.
+        
+        Args:
+            username: Optional username (ignored, uses first configured account)
+            
+        Returns:
+            Tuple of (success, video_data)
+        """
+        if not self.accounts:
+            logger.warning("No YouTube accounts configured")
+            return False, None
+        
+        # Use the first account for backward compatibility with tests
+        first_account = self.accounts[0]
+        channel_id = first_account.get('channel_id')
+        
+        if not channel_id:
+            logger.error("First YouTube account has no channel_id")
+            return False, None
+        
+        return self.get_latest_video_for_channel(channel_id)
+    
     def get_latest_video_for_channel(self, channel_id: str) -> Tuple[bool, Optional[dict]]:
         """
         Get the latest video from a specific YouTube channel.
