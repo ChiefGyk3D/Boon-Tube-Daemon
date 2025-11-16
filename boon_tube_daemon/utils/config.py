@@ -19,6 +19,10 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+# Constants for secret validation
+PLACEHOLDER_PREFIX = 'YOUR_'  # Prefix for placeholder values in config templates
+EMPTY_SECRET = ''  # Empty string constant for fallback values
+
 # Global config instance
 _config = None
 
@@ -94,16 +98,16 @@ def get_config(section: str, key: str, default: Any = None) -> Optional[str]:
                 # Try sectioned key first (e.g., BLUESKY_HANDLE)
                 if sectioned_key in secrets_response.secrets:
                     value = secrets_response.secrets[sectioned_key].get('computed',
-                            secrets_response.secrets[sectioned_key].get('raw', ''))
-                    if value and not value.startswith('YOUR_'):
+                            secrets_response.secrets[sectioned_key].get('raw', EMPTY_SECRET))
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {sectioned_key}")
                         return value
                 
                 # Try simple key format (e.g., CHECK_INTERVAL)
                 if simple_key in secrets_response.secrets:
                     value = secrets_response.secrets[simple_key].get('computed',
-                            secrets_response.secrets[simple_key].get('raw', ''))
-                    if value and not value.startswith('YOUR_'):
+                            secrets_response.secrets[simple_key].get('raw', EMPTY_SECRET))
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {simple_key}")
                         return value
         except ImportError:
@@ -232,7 +236,7 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
         # First check if it's already injected as an env var (from doppler run)
         value = os.getenv(env_var)
         # Skip placeholder values
-        if value and not value.startswith('YOUR_'):
+        if value and not value.startswith(PLACEHOLDER_PREFIX):
             logger.debug(f"✓ Retrieved {section}.{key} from Doppler (env var)")
             return value
         
@@ -254,7 +258,7 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                     # Extract the computed value (or raw if computed not available)
                     value = secret_data.get('computed', secret_data.get('raw'))
                     # Skip placeholder values
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler (SDK)")
                         return value
         except ImportError:
@@ -279,19 +283,19 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 # Try exact key match first
                 if key in secret_dict:
                     value = secret_dict[key]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
                 # Try uppercase key (for consistency)
                 if key.upper() in secret_dict:
                     value = secret_dict[key.upper()]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
                 # Try the full env var name
                 if env_var in secret_dict:
                     value = secret_dict[env_var]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
         except ImportError:
@@ -319,19 +323,19 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 # Try exact key match first
                 if key in data:
                     value = data[key]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
                 # Try uppercase key
                 if key.upper() in data:
                     value = data[key.upper()]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
                 # Try the full env var name
                 if env_var in data:
                     value = data[env_var]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
         except ImportError:
@@ -342,12 +346,12 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     # 4. Fallback to environment variable or .env file
     value = get_config(section, key, default=default)
     # Skip placeholder values (common in template .env files)
-    if value and not value.startswith('YOUR_'):
+    if value and not value.startswith(PLACEHOLDER_PREFIX):
         logger.debug(f"✓ Retrieved {section}.{key} from environment/.env")
         return value
     
-    if value and value.startswith('YOUR_'):
-        logger.warning(f"⚠ Found placeholder value for {section}.{key} in .env (starts with 'YOUR_')")
+    if value and value.startswith(PLACEHOLDER_PREFIX):
+        logger.warning(f"⚠ Found placeholder value for {section}.{key} in .env (starts with '{PLACEHOLDER_PREFIX}')")
     
     logger.debug(f"Secret not found: {section}.{key}")
     return default
