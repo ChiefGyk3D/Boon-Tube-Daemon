@@ -16,7 +16,8 @@ import sys
 from typing import List, Dict
 from datetime import datetime
 
-# Configure logging
+# Configure logging with local timezone
+logging.Formatter.converter = time.localtime
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
