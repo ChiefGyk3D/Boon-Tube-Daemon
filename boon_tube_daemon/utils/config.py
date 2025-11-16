@@ -170,7 +170,7 @@ def get_int_config(section: str, key: str, default: int = 0) -> int:
     try:
         return int(value)
     except (ValueError, TypeError):
-        logger.warning(f"Invalid integer value for {section}.{key}: {value}, using default: {default}")
+        logger.warning(f"Invalid integer value for {section}.{key}, using default: {default}")
         return default
 
 
@@ -194,7 +194,7 @@ def get_float_config(section: str, key: str, default: float = 0.0) -> float:
     try:
         return float(value)
     except (ValueError, TypeError):
-        logger.warning(f"Invalid float value for {section}.{key}: {value}, using default: {default}")
+        logger.warning(f"Invalid float value for {section}.{key}, using default: {default}")
         return default
 
 
