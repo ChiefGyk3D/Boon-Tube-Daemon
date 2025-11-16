@@ -90,7 +90,7 @@ class MastodonPlatform(SocialPlatform):
                 })
                 logger.info(f"✓ Mastodon: Authenticated {name}")
             except Exception as e:
-                logger.warning(f"✗ Mastodon authentication failed for {name}: {e}")
+                logger.warning(f"✗ Mastodon authentication failed for {name}: {type(e).__name__}")
                 continue
         
         if not self.accounts:
@@ -164,7 +164,7 @@ class MastodonPlatform(SocialPlatform):
                                     # Clean up temp file
                                     os.unlink(tmp_path)
                         except Exception as img_error:
-                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account {account_name}: {img_error}")
+                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account {account_name}: {type(img_error).__name__}")
                 
                 # Post as a reply if reply_to_id is provided (threading)
                 status = client.status_post(
@@ -177,7 +177,7 @@ class MastodonPlatform(SocialPlatform):
                 logger.info(f"✓ Mastodon: Posted to {account_name}")
                 
             except Exception as e:
-                logger.error(f"✗ Mastodon post failed for {account_name}: {e}")
+                logger.error(f"✗ Mastodon post failed for {account_name}: {type(e).__name__}")
                 continue
         
         # Return first post ID for compatibility, or None if all failed

@@ -165,7 +165,7 @@ class MatrixPlatform:
             
             return None
         except Exception as e:
-            logger.error(f"✗ Matrix login error for {account_name}: {e}")
+            logger.error(f"✗ Matrix login error for {account_name}: {type(e).__name__}")
             return None
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
@@ -234,9 +234,9 @@ class MatrixPlatform:
                     event_ids.append(event_id)
                     logger.info(f"✓ Matrix: Posted to {account_name}")
                 else:
-                    logger.warning(f"⚠ Matrix post failed for {account_name} with status {response.status_code}: {response.text}")
+                    logger.warning(f"⚠ Matrix post failed for {account_name} with status {response.status_code}")
             except Exception as e:
-                logger.error(f"✗ Matrix post failed for {account_name}: {e}")
+                logger.error(f"✗ Matrix post failed for {account_name}: {type(e).__name__}")
                 continue
         
         # Return first event ID for compatibility, or None if all failed

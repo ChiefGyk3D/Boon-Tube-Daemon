@@ -15,7 +15,7 @@ from typing import Optional, Tuple
 
 from googleapiclient.discovery import build
 
-from boon_tube_daemon.utils.config import get_config, get_secret, get_youtube_accounts
+from boon_tube_daemon.utils.config import get_secret, get_youtube_accounts
 from boon_tube_daemon.media.base import MediaPlatform
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             return True
             
         except Exception as e:
-            logger.error(f"✗ YouTube authentication failed: {e}")
+            logger.error(f"✗ YouTube authentication failed: {type(e).__name__}")
             self.enabled = False
             return False
     
@@ -126,7 +126,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             return None
             
         except Exception as e:
-            logger.error(f"Error resolving YouTube channel ID: {e}")
+            logger.error(f"Error resolving YouTube channel ID: {type(e).__name__}")
             return None
     
     def _get_channel_name(self, channel_id: str) -> Optional[str]:
@@ -283,7 +283,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                     self.quota_exceeded_time = datetime.now()
                     logger.error(f"❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
-                logger.error(f"⚠ Error checking YouTube: {e}")
+                logger.error(f"⚠ Error checking YouTube: {type(e).__name__}")
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -356,5 +356,5 @@ class YouTubeVideosPlatform(MediaPlatform):
             
             return None
         except Exception as e:
-            logger.warning(f"Error resolving YouTube channel ID for {username}: {e}")
+            logger.warning(f"Error resolving YouTube channel ID for {username}: {type(e).__name__}")
             return None

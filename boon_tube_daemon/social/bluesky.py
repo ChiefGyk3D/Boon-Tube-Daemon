@@ -78,7 +78,7 @@ class BlueskyPlatform:
                 })
                 logger.info(f"✓ Bluesky: Authenticated {name}")
             except Exception as e:
-                logger.warning(f"✗ Bluesky authentication failed for {name}: {e}")
+                logger.warning(f"✗ Bluesky authentication failed for {name}: {type(e).__name__}")
                 continue
         
         if not self.accounts:
@@ -232,7 +232,6 @@ class BlueskyPlatform:
                             # For non-Kick URLs, scrape Open Graph metadata
                             import requests
                             from bs4 import BeautifulSoup
-                            from urllib.parse import urlparse
                             
                             # Fetch the page with a realistic browser User-Agent
                             headers = {
@@ -337,7 +336,7 @@ class BlueskyPlatform:
                             logger.info(f"✓ Bluesky: Posted threaded reply to {account_name}")
                         
                     except Exception as thread_error:
-                        logger.warning(f"⚠ Bluesky threading failed for {account_name}, posting without thread: {thread_error}")
+                        logger.warning(f"⚠ Bluesky threading failed for {account_name}, posting without thread: {type(thread_error).__name__}")
                         # Fall back to non-threaded post
                         try:
                             response = client.send_post(text_builder, embed=embed)
@@ -346,7 +345,7 @@ class BlueskyPlatform:
                                 post_uris.append(post_uri)
                                 logger.info(f"✓ Bluesky: Posted to {account_name}")
                         except Exception as fallback_error:
-                            logger.error(f"✗ Bluesky post failed for {account_name}: {fallback_error}")
+                            logger.error(f"✗ Bluesky post failed for {account_name}: {type(fallback_error).__name__}")
                 else:
                     # Simple post without threading, with rich text and embed card
                     response = client.send_post(text_builder, embed=embed)
@@ -356,7 +355,7 @@ class BlueskyPlatform:
                         logger.info(f"✓ Bluesky: Posted to {account_name}")
                     
             except Exception as e:
-                logger.error(f"✗ Bluesky post failed for {account_name}: {e}")
+                logger.error(f"✗ Bluesky post failed for {account_name}: {type(e).__name__}")
                 continue
         
         # Return first post URI for compatibility, or None if all failed
