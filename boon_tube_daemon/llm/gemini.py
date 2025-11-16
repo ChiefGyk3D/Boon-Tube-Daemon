@@ -359,6 +359,8 @@ Matrix-specific guidelines:
 Write the announcement now WITHOUT including any URLs:"""
 
             elif social_platform_lower == 'bluesky':
+                # Bluesky has 300 char limit. YouTube URLs are ~43 chars, so leave room
+                # 300 total - 43 URL - 2 newlines = 255 chars for content
                 prompt = f"""Create an engaging Bluesky post for this new {platform_name} video.
 
 Title: {title}
@@ -368,18 +370,20 @@ Style: {post_style}
 {style_instruction}
 
 Bluesky-specific guidelines:
-- CRITICAL: ABSOLUTE MAXIMUM 300 characters TOTAL (Bluesky will reject anything longer)
-- Count EVERY character including spaces, emojis, URL, and hashtags
+- CRITICAL: Stay under 255 characters (URL will be added separately, Bluesky limit is 300 total)
+- Count EVERY character including spaces, emojis, and hashtags
 - NO platform greetings like "Hey Bluesky!" - wastes precious characters
 - NO meta text like "Here's a post:" or "Bluesky draft:" - just write the actual post
 - NO placeholder URLs like "youtube.com/watch/example" or "[YouTube Link]" - the actual URL will be added automatically
 - Include 2-3 SHORT hashtags (#Linux not #LinuxForBeginners)
 - Put hashtags at the end
-- Keep main text to ~250 chars to leave room for hashtags
+- Keep main text to ~220 chars to leave room for hashtags
 
-Write ONLY the post content WITHOUT any URLs (must be under 300 chars total):"""
+Write ONLY the post content WITHOUT any URLs (must be under 255 chars):"""
 
             elif social_platform_lower == 'mastodon':
+                # Mastodon has 500 char limit. YouTube URLs are ~43 chars, so leave room
+                # 500 total - 43 URL - 2 newlines = 455 chars for content
                 prompt = f"""Create an engaging Mastodon toot for this new {platform_name} video.
 
 Title: {title}
@@ -389,15 +393,15 @@ Style: {post_style}
 {style_instruction}
 
 Mastodon-specific guidelines:
-- CRITICAL: ABSOLUTE MAXIMUM 500 characters TOTAL (Mastodon will reject anything longer)
+- CRITICAL: Stay under 455 characters (URL will be added separately, Mastodon limit is 500 total)
 - Count EVERY character including spaces, hashtags, punctuation
 - NO platform greetings like "Hey Mastodon!" - wastes characters
 - NO placeholder URLs like "YOUR_VIDEO_ID" - the actual URL will be added automatically
 - Include 3-5 SHORT hashtags at the end (#Linux not #LinuxForBeginners)
-- Keep main text to ~380 chars MAX to leave room for hashtags (URL added separately)
-- If style is 'detailed', be comprehensive but STAY UNDER 500 chars total
+- Keep main text to ~380 chars to leave room for hashtags
+- If style is 'detailed', be comprehensive but STAY UNDER 455 chars
 
-Write the toot now WITHOUT including any URLs (MUST be under 500 chars total):"""
+Write the toot now WITHOUT including any URLs (MUST be under 455 chars):"""
 
             else:
                 # Fallback for unknown platforms
