@@ -103,7 +103,8 @@ class BlueskyPlatform:
                         first_url = matched_text
                 elif matched_text.startswith('#'):
                     # Add hashtag as clickable tag
-                    text_builder.tag(matched_text[1:], matched_text)  # tag() expects tag without #
+                    # Both parameters need # stripped: first is the tag value, second is display text
+                    text_builder.tag(matched_text[1:], matched_text[1:])
                 
                 last_pos = match.end()
             
