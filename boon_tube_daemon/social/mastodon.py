@@ -9,7 +9,7 @@ Mastodon social platform implementation with threading support.
 import logging
 from typing import Optional
 from mastodon import Mastodon
-from boon_tube_daemon.utils.config import get_config, get_bool_config, get_secret, get_mastodon_accounts
+from boon_tube_daemon.utils.config import get_bool_config, get_mastodon_accounts
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +59,11 @@ class MastodonPlatform(SocialPlatform):
             return False
         
         # Authenticate all accounts
-        for account_config in account_configs:
+        for idx, account_config in enumerate(account_configs, 1):
             client_id = account_config.get('client_id')
             client_secret = account_config.get('client_secret')
             access_token = account_config.get('access_token')
             api_base_url = account_config.get('api_base_url')
-            name = account_config.get('name') or api_base_url
             
             if not all([client_id, client_secret, access_token, api_base_url]):
                 missing = []
@@ -72,7 +71,7 @@ class MastodonPlatform(SocialPlatform):
                 if not client_secret: missing.append('client_secret')
                 if not access_token: missing.append('access_token')
                 if not api_base_url: missing.append('api_base_url')
-                logger.warning(f"✗ Mastodon account {name} missing credentials: {', '.join(missing)}")
+                logger.warning(f"✗ Mastodon account #{idx} missing credentials: {', '.join(missing)}")
                 continue
             
             try:
@@ -86,11 +85,11 @@ class MastodonPlatform(SocialPlatform):
                 self.accounts.append({
                     'client': client,
                     'api_base_url': api_base_url,
-                    'name': name
+                    'index': idx
                 })
-                logger.info(f"✓ Mastodon: Authenticated {name}")
+                logger.info(f"✓ Mastodon: Authenticated account #{idx}")
             except Exception as e:
-                logger.warning(f"✗ Mastodon authentication failed for {name}: {type(e).__name__}")
+                logger.warning(f"✗ Mastodon authentication failed for account #{idx}: {type(e).__name__}")
                 continue
         
         if not self.accounts:
@@ -110,7 +109,7 @@ class MastodonPlatform(SocialPlatform):
         # Post to all configured Mastodon accounts
         for account in self.accounts:
             client = account['client']
-            account_name = account['name']
+            account_idx = account['index']
             
             try:
                 # Check if we should attach a thumbnail image
@@ -159,12 +158,12 @@ class MastodonPlatform(SocialPlatform):
                                     
                                     media = client.media_post(tmp_path, description=description)
                                     media_ids.append(media['id'])
-                                    logger.info(f"✓ Uploaded thumbnail to Mastodon account {account_name} (media ID: {media['id']})")
+                                    logger.info(f"✓ Uploaded thumbnail to Mastodon account #{account_idx} (media ID: {media['id']})")
                                 finally:
                                     # Clean up temp file
                                     os.unlink(tmp_path)
                         except Exception as img_error:
-                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account {account_name}: {type(img_error).__name__}")
+                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account #{account_idx}: {type(img_error).__name__}")
                 
                 # Post as a reply if reply_to_id is provided (threading)
                 status = client.status_post(
@@ -174,10 +173,10 @@ class MastodonPlatform(SocialPlatform):
                 )
                 post_id = str(status['id'])
                 post_ids.append(post_id)
-                logger.info(f"✓ Mastodon: Posted to {account_name}")
+                logger.info(f"✓ Mastodon: Posted to account #{account_idx}")
                 
             except Exception as e:
-                logger.error(f"✗ Mastodon post failed for {account_name}: {type(e).__name__}")
+                logger.error(f"✗ Mastodon post failed for account #{account_idx}: {type(e).__name__}")
                 continue
         
         # Return first post ID for compatibility, or None if all failed

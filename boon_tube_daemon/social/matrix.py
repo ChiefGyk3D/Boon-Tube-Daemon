@@ -81,16 +81,15 @@ class MatrixPlatform:
             return False
         
         # Authenticate all accounts
-        for account_config in account_configs:
+        for idx, account_config in enumerate(account_configs, 1):
             homeserver = account_config.get('homeserver')
             room_id = account_config.get('room_id')
             access_token = account_config.get('access_token')
             username = account_config.get('username')
             password = account_config.get('password')
-            name = account_config.get('name') or room_id
             
             if not homeserver or not room_id:
-                logger.warning(f"✗ Matrix account {name} missing required fields (homeserver, room_id)")
+                logger.warning(f"✗ Matrix account #{idx} missing required fields (homeserver, room_id)")
                 continue
             
             # Ensure homeserver has proper format
@@ -101,26 +100,26 @@ class MatrixPlatform:
             # If both are set, username/password takes precedence for automatic token rotation
             if username and password:
                 # Login to get fresh access token
-                logger.info(f"Matrix {name}: Using username/password authentication (auto-rotation enabled)")
-                access_token = self._login_and_get_token(homeserver, username, password, name)
+                logger.info(f"Matrix account #{idx}: Using username/password authentication (auto-rotation enabled)")
+                access_token = self._login_and_get_token(homeserver, username, password, idx)
                 if not access_token:
-                    logger.error(f"✗ Matrix login failed for {name} - check username/password")
+                    logger.error(f"✗ Matrix login failed for account #{idx} - check username/password")
                     continue
-                logger.info(f"✓ Matrix {name}: Logged in and obtained access token")
+                logger.info(f"✓ Matrix account #{idx}: Logged in and obtained access token")
             elif access_token:
                 # Use static access token
-                logger.info(f"Matrix {name}: Using static access token authentication")
+                logger.info(f"Matrix account #{idx}: Using static access token authentication")
             else:
-                logger.error(f"✗ Matrix account {name} authentication failed - need either access_token OR username+password")
+                logger.error(f"✗ Matrix account #{idx} authentication failed - need either access_token OR username+password")
                 continue
             
             self.accounts.append({
                 'homeserver': homeserver,
                 'room_id': room_id,
                 'access_token': access_token,
-                'name': name
+                'index': idx
             })
-            logger.info(f"✓ Matrix: Authenticated {name}")
+            logger.info(f"✓ Matrix: Authenticated account #{idx}")
         
         if not self.accounts:
             logger.warning("✗ No Matrix accounts could be authenticated")
@@ -130,7 +129,7 @@ class MatrixPlatform:
         logger.info(f"✓ Matrix authenticated for {len(self.accounts)} account(s)")
         return True
     
-    def _login_and_get_token(self, homeserver: str, username: str, password: str, account_name: str) -> Optional[str]:
+    def _login_and_get_token(self, homeserver: str, username: str, password: str, account_idx: int) -> Optional[str]:
         """Login with username/password to get access token."""
         try:
             # Extract just the username part from full MXID (@username:domain)
@@ -156,16 +155,16 @@ class MatrixPlatform:
                 data = response.json()
                 access_token = data.get('access_token')
                 if access_token:
-                    logger.info(f"✓ Obtained Matrix access token for {account_name} (expires: {data.get('expires_in_ms', 'never')})")
+                    logger.info(f"✓ Obtained Matrix access token for account #{account_idx} (expires: {data.get('expires_in_ms', 'never')})")
                     return access_token
                 else:
-                    logger.error(f"✗ Matrix login succeeded for {account_name} but no access_token in response")
+                    logger.error(f"✗ Matrix login succeeded for account #{account_idx} but no access_token in response")
             else:
-                logger.error(f"✗ Matrix login failed for {account_name}: {response.status_code}")
+                logger.error(f"✗ Matrix login failed for account #{account_idx}: {response.status_code}")
             
             return None
         except Exception as e:
-            logger.error(f"✗ Matrix login error for {account_name}: {type(e).__name__}")
+            logger.error(f"✗ Matrix login error for account #{account_idx}: {type(e).__name__}")
             return None
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
@@ -179,7 +178,7 @@ class MatrixPlatform:
             homeserver = account['homeserver']
             room_id = account['room_id']
             access_token = account['access_token']
-            account_name = account['name']
+            account_idx = account['index']
             
             try:
                 # Extract URL from message for rich formatting
@@ -232,11 +231,11 @@ class MatrixPlatform:
                     data = response.json()
                     event_id = data.get('event_id')
                     event_ids.append(event_id)
-                    logger.info(f"✓ Matrix: Posted to {account_name}")
+                    logger.info(f"✓ Matrix: Posted to account #{account_idx}")
                 else:
-                    logger.warning(f"⚠ Matrix post failed for {account_name} with status {response.status_code}")
+                    logger.warning(f"⚠ Matrix post failed for account #{account_idx} with status {response.status_code}")
             except Exception as e:
-                logger.error(f"✗ Matrix post failed for {account_name}: {type(e).__name__}")
+                logger.error(f"✗ Matrix post failed for account #{account_idx}: {type(e).__name__}")
                 continue
         
         # Return first event ID for compatibility, or None if all failed

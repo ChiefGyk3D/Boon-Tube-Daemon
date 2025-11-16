@@ -53,7 +53,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.client = build('youtube', 'v3', developerKey=api_key)
             
             # Resolve channel IDs for all accounts
-            for account in account_configs:
+            for idx, account in enumerate(account_configs, 1):
                 channel_id = account.get('channel_id')
                 username = account.get('username')
                 
@@ -66,10 +66,8 @@ class YouTubeVideosPlatform(MediaPlatform):
                     account['channel_id'] = channel_id
                 
                 if channel_id:
-                    # Fetch channel name if not provided
-                    if not account.get('name'):
-                        channel_name = self._get_channel_name(channel_id)
-                        account['name'] = channel_name or channel_id
+                    # Add index for safe logging (instead of using tainted 'name' field)
+                    account['index'] = idx
                     
                     self.accounts.append(account)
                     self.last_video_ids[channel_id] = None
@@ -315,13 +313,13 @@ class YouTubeVideosPlatform(MediaPlatform):
             # Check if this is a new video for this channel
             if self.last_video_ids[channel_id] is None:
                 # First run for this channel - don't notify, just track
-                logger.info(f"📹 YouTube: Initialized tracking for {account['name']}")
+                logger.info(f"📹 YouTube: Initialized tracking for account #{account['index']}")
                 self.last_video_ids[channel_id] = current_video_id
                 continue
             
             if current_video_id != self.last_video_ids[channel_id]:
                 # New video detected for this channel!
-                logger.info(f"🎬 YouTube ({account['name']}): New video: {video_data.get('title')[:50]}...")
+                logger.info(f"🎬 YouTube (account #{account['index']}): New video: {video_data.get('title')[:50]}...")
                 self.last_video_ids[channel_id] = current_video_id
                 
                 # Add account info to video_data

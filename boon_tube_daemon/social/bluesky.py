@@ -11,7 +11,7 @@ import re
 from typing import Optional
 from urllib.parse import urlparse
 from atproto import Client, models, client_utils
-from boon_tube_daemon.utils.config import get_config, get_bool_config, get_secret, get_bluesky_accounts
+from boon_tube_daemon.utils.config import get_bool_config, get_bluesky_accounts
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +58,12 @@ class BlueskyPlatform:
             return False
         
         # Authenticate all accounts
-        for account_config in account_configs:
+        for idx, account_config in enumerate(account_configs, 1):
             handle = account_config.get('handle')
             app_password = account_config.get('app_password')
-            name = account_config.get('name') or handle
             
             if not all([handle, app_password]):
-                logger.warning(f"✗ Bluesky account missing credentials: {name}")
+                logger.warning(f"✗ Bluesky account #{idx} missing credentials")
                 continue
             
             try:
@@ -74,11 +73,11 @@ class BlueskyPlatform:
                 self.accounts.append({
                     'client': client,
                     'handle': handle,
-                    'name': name
+                    'index': idx
                 })
-                logger.info(f"✓ Bluesky: Authenticated {name}")
+                logger.info(f"✓ Bluesky: Authenticated account #{idx}")
             except Exception as e:
-                logger.warning(f"✗ Bluesky authentication failed for {name}: {type(e).__name__}")
+                logger.warning(f"✗ Bluesky authentication failed for account #{idx}: {type(e).__name__}")
                 continue
         
         if not self.accounts:
@@ -98,7 +97,7 @@ class BlueskyPlatform:
         # Post to all configured Bluesky accounts
         for account in self.accounts:
             client = account['client']
-            account_name = account['name']
+            account_idx = account['index']
             
             try:
                 # Use TextBuilder to create rich text with explicit links and hashtags
@@ -302,12 +301,12 @@ class BlueskyPlatform:
                         parent_response = client.app.bsky.feed.get_posts({'uris': [reply_to_id]})
                         
                         if not parent_response or not hasattr(parent_response, 'posts') or not parent_response.posts:
-                            logger.warning(f"⚠ Could not fetch parent post, posting without thread to {account_name}")
+                            logger.warning(f"⚠ Could not fetch parent post, posting without thread to {account_idx}")
                             response = client.send_post(text_builder, embed=embed)
                             post_uri = response.uri if hasattr(response, 'uri') else None
                             if post_uri:
                                 post_uris.append(post_uri)
-                                logger.info(f"✓ Bluesky: Posted to {account_name}")
+                                logger.info(f"✓ Bluesky: Posted to {account_idx}")
                             continue
                         
                         parent_post = parent_response.posts[0]
@@ -333,29 +332,29 @@ class BlueskyPlatform:
                         post_uri = response.uri if hasattr(response, 'uri') else None
                         if post_uri:
                             post_uris.append(post_uri)
-                            logger.info(f"✓ Bluesky: Posted threaded reply to {account_name}")
+                            logger.info(f"✓ Bluesky: Posted threaded reply to {account_idx}")
                         
                     except Exception as thread_error:
-                        logger.warning(f"⚠ Bluesky threading failed for {account_name}, posting without thread: {type(thread_error).__name__}")
+                        logger.warning(f"⚠ Bluesky threading failed for {account_idx}, posting without thread: {type(thread_error).__name__}")
                         # Fall back to non-threaded post
                         try:
                             response = client.send_post(text_builder, embed=embed)
                             post_uri = response.uri if hasattr(response, 'uri') else None
                             if post_uri:
                                 post_uris.append(post_uri)
-                                logger.info(f"✓ Bluesky: Posted to {account_name}")
+                                logger.info(f"✓ Bluesky: Posted to {account_idx}")
                         except Exception as fallback_error:
-                            logger.error(f"✗ Bluesky post failed for {account_name}: {type(fallback_error).__name__}")
+                            logger.error(f"✗ Bluesky post failed for {account_idx}: {type(fallback_error).__name__}")
                 else:
                     # Simple post without threading, with rich text and embed card
                     response = client.send_post(text_builder, embed=embed)
                     post_uri = response.uri if hasattr(response, 'uri') else None
                     if post_uri:
                         post_uris.append(post_uri)
-                        logger.info(f"✓ Bluesky: Posted to {account_name}")
+                        logger.info(f"✓ Bluesky: Posted to {account_idx}")
                     
             except Exception as e:
-                logger.error(f"✗ Bluesky post failed for {account_name}: {type(e).__name__}")
+                logger.error(f"✗ Bluesky post failed for {account_idx}: {type(e).__name__}")
                 continue
         
         # Return first post URI for compatibility, or None if all failed
