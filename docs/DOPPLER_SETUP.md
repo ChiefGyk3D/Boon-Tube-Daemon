@@ -99,6 +99,268 @@ GEMINI_API_KEY=your_gemini_api_key
 GEMINI_ENABLE=true
 ```
 
+---
+
+## Multi-Account Configuration
+
+The daemon supports monitoring multiple YouTube channels and posting to multiple social media accounts simultaneously. Here's how to configure multi-account support in Doppler:
+
+### YouTube Multi-Account
+
+Monitor multiple YouTube channels with per-channel Discord roles and webhooks:
+
+**In Doppler Dashboard, add:**
+```json
+YOUTUBE_ACCOUNTS=[
+  {
+    "username": "@LinusTechTips",
+    "discord_role": "1234567890",
+    "discord_webhook": "https://discord.com/api/webhooks/xxx/token1",
+    "name": "LTT Main"
+  },
+  {
+    "channel_id": "UCXuqSBlHAE6Xw-yeJA0Tunw",
+    "discord_role": "0987654321",
+    "name": "LTT Clips"
+  },
+  {
+    "username": "@MKBHD",
+    "discord_webhook": "https://discord.com/api/webhooks/yyy/token2",
+    "name": "Marques Brownlee"
+  }
+]
+```
+
+**Key Points:**
+- Use either `username` OR `channel_id` (or both)
+- `discord_role` is optional (overrides default role per channel)
+- `discord_webhook` is optional (routes to different Discord servers/channels)
+- `name` is optional but helps with logging
+- Remove the `YOUTUBE_USERNAME` secret if using `YOUTUBE_ACCOUNTS`
+
+**Backward Compatible:**
+- If `YOUTUBE_ACCOUNTS` is not set, falls back to `YOUTUBE_USERNAME` or `YOUTUBE_CHANNEL_ID`
+- Existing single-channel configs work without any changes
+
+### Bluesky Multi-Account
+
+Cross-post to multiple Bluesky accounts:
+
+**In Doppler Dashboard, add:**
+```json
+BLUESKY_ACCOUNTS=[
+  {
+    "handle": "personal.bsky.social",
+    "app_password": "xxxx-xxxx-xxxx-xxxx",
+    "name": "Personal Account"
+  },
+  {
+    "handle": "project.bsky.social",
+    "app_password": "yyyy-yyyy-yyyy-yyyy",
+    "name": "Project Updates"
+  }
+]
+```
+
+**Key Points:**
+- Each account needs its own `app_password` (create at Bluesky Settings → App Passwords)
+- `name` is optional but recommended for clear logging
+- Posts go to ALL configured accounts simultaneously
+- Remove `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD` secrets if using `BLUESKY_ACCOUNTS`
+
+**Backward Compatible:**
+- If `BLUESKY_ACCOUNTS` is not set, falls back to `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD`
+- Existing single-account configs work without any changes
+
+### Mastodon Multi-Instance
+
+Post to multiple Mastodon instances across the fediverse:
+
+**In Doppler Dashboard, add:**
+```json
+MASTODON_ACCOUNTS=[
+  {
+    "api_base_url": "https://mastodon.social",
+    "client_id": "your_client_id_1",
+    "client_secret": "your_client_secret_1",
+    "access_token": "your_access_token_1",
+    "name": "Mastodon Social"
+  },
+  {
+    "api_base_url": "https://fosstodon.org",
+    "client_id": "your_client_id_2",
+    "client_secret": "your_client_secret_2",
+    "access_token": "your_access_token_2",
+    "name": "Fosstodon"
+  },
+  {
+    "api_base_url": "https://mastodon.xyz",
+    "client_id": "your_client_id_3",
+    "client_secret": "your_client_secret_3",
+    "access_token": "your_access_token_3",
+    "name": "Mastodon XYZ"
+  }
+]
+```
+
+**Key Points:**
+- Each instance requires its own credentials (obtain from each instance's settings)
+- All fields are required per account: `api_base_url`, `client_id`, `client_secret`, `access_token`
+- `name` is optional but helps identify which instance in logs
+- Cross-posts same content to all configured instances
+- Remove single-account secrets if using `MASTODON_ACCOUNTS`
+
+**Backward Compatible:**
+- If `MASTODON_ACCOUNTS` is not set, falls back to single-account secrets
+- Existing configs work without any changes
+
+### Matrix Multi-Room / Multi-Homeserver
+
+Post to multiple Matrix rooms (same or different homeservers):
+
+**Option A: Access Token Method**
+```json
+MATRIX_ACCOUNTS=[
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!mainroom:matrix.org",
+    "access_token": "your_token_1",
+    "name": "Main Room"
+  },
+  {
+    "homeserver": "https://chat.mydomain.com",
+    "room_id": "!announcements:chat.mydomain.com",
+    "access_token": "your_token_2",
+    "name": "Self-Hosted Server"
+  }
+]
+```
+
+**Option B: Username/Password Method (with Auto-Rotation)**
+```json
+MATRIX_ACCOUNTS=[
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!mainroom:matrix.org",
+    "username": "@botuser:matrix.org",
+    "password": "bot_password",
+    "name": "Main Bot"
+  },
+  {
+    "homeserver": "https://chat.mydomain.com",
+    "room_id": "!announcements:chat.mydomain.com",
+    "username": "@announcer:chat.mydomain.com",
+    "password": "announcer_password",
+    "name": "Announcer Bot"
+  }
+]
+```
+
+**Option C: Mixed Authentication (some accounts use tokens, some use passwords)**
+```json
+MATRIX_ACCOUNTS=[
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!room1:matrix.org",
+    "access_token": "static_token",
+    "name": "Room 1 (Static Token)"
+  },
+  {
+    "homeserver": "https://matrix.org",
+    "room_id": "!room2:matrix.org",
+    "username": "@bot:matrix.org",
+    "password": "bot_pass",
+    "name": "Room 2 (Auto-Rotation)"
+  }
+]
+```
+
+**Key Points:**
+- Required fields per account: `homeserver`, `room_id`
+- Authentication: Either `access_token` OR (`username` + `password`)
+- If both provided, username/password takes precedence (preferred for auto-rotation)
+- `name` is optional but recommended for logging clarity
+- Can mix different homeservers and authentication methods
+- Remove single-account Matrix secrets if using `MATRIX_ACCOUNTS`
+
+**Backward Compatible:**
+- If `MATRIX_ACCOUNTS` is not set, falls back to single-account secrets
+- Existing configs work without any changes
+
+### Best Practices for Multi-Account Secrets
+
+**1. JSON Formatting in Doppler:**
+- Doppler accepts multi-line JSON (easier to read)
+- Or single-line minified JSON (more compact)
+- Use the Doppler web editor which validates JSON syntax
+
+**2. Naming Convention:**
+```
+YOUTUBE_ACCOUNTS   - Multi-account YouTube config
+BLUESKY_ACCOUNTS   - Multi-account Bluesky config
+MASTODON_ACCOUNTS  - Multi-account Mastodon config
+MATRIX_ACCOUNTS    - Multi-account Matrix config
+```
+
+**3. Security:**
+- Use Doppler's secret reference feature for repeated values
+- Rotate app passwords/tokens regularly
+- Use Matrix username/password for automatic token rotation
+- Never commit actual secrets to git
+
+**4. Testing:**
+```bash
+# Test multi-account config
+doppler secrets get YOUTUBE_ACCOUNTS
+
+# Verify JSON syntax
+doppler secrets get YOUTUBE_ACCOUNTS | python3 -m json.tool
+
+# Run daemon with multi-account
+doppler run -- python3 main.py
+```
+
+**5. Migration from Single to Multi-Account:**
+```bash
+# Step 1: Export existing single-account config
+doppler secrets download --no-file --format env > current-config.txt
+
+# Step 2: Create YOUTUBE_ACCOUNTS JSON from existing values
+# (Manually convert YOUTUBE_USERNAME to JSON array format)
+
+# Step 3: Add new multi-account secret
+doppler secrets set YOUTUBE_ACCOUNTS '[{"username":"@YourChannel","name":"Main"}]'
+
+# Step 4: Remove old single-account secrets (optional, but recommended)
+doppler secrets delete YOUTUBE_USERNAME
+# Note: Keeping both won't break anything - multi-account takes precedence
+
+# Step 5: Test
+doppler run -- python3 main.py --log-level INFO
+```
+
+### Scaling Considerations
+
+**YouTube API Quota:**
+- Each channel check uses ~3 quota units
+- Default quota: 10,000 units/day
+- At 5-minute intervals: ~288 checks/channel/day = 864 units/channel/day
+- Can safely monitor ~10 channels with default quota
+- Request quota increase from Google for more channels
+
+**Rate Limits:**
+- **Discord**: 50 requests/second (per webhook), 5 messages/5 seconds per webhook
+- **Bluesky**: ~300 posts/day per account, 10 posts/minute
+- **Mastodon**: Varies by instance (typically 300 posts/day)
+- **Matrix**: Typically unlimited for bots, check homeserver policy
+
+**Memory/CPU:**
+- ~50-100MB RAM per 10 YouTube channels monitored
+- Minimal CPU usage during sleep intervals
+- Scales linearly with number of accounts
+
+---
+
 #### Option B: Via CLI
 
 ```bash
