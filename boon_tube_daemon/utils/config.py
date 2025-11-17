@@ -19,6 +19,10 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+# Constants for secret validation
+PLACEHOLDER_PREFIX = 'YOUR_'  # Prefix for placeholder values in config templates
+EMPTY_SECRET = ''  # Empty string constant for fallback values
+
 # Global config instance
 _config = None
 
@@ -94,16 +98,16 @@ def get_config(section: str, key: str, default: Any = None) -> Optional[str]:
                 # Try sectioned key first (e.g., BLUESKY_HANDLE)
                 if sectioned_key in secrets_response.secrets:
                     value = secrets_response.secrets[sectioned_key].get('computed',
-                            secrets_response.secrets[sectioned_key].get('raw', ''))
-                    if value and not value.startswith('YOUR_'):
+                            secrets_response.secrets[sectioned_key].get('raw', EMPTY_SECRET))
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {sectioned_key}")
                         return value
                 
                 # Try simple key format (e.g., CHECK_INTERVAL)
                 if simple_key in secrets_response.secrets:
                     value = secrets_response.secrets[simple_key].get('computed',
-                            secrets_response.secrets[simple_key].get('raw', ''))
-                    if value and not value.startswith('YOUR_'):
+                            secrets_response.secrets[simple_key].get('raw', EMPTY_SECRET))
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler: {simple_key}")
                         return value
         except ImportError:
@@ -232,7 +236,7 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
         # First check if it's already injected as an env var (from doppler run)
         value = os.getenv(env_var)
         # Skip placeholder values
-        if value and not value.startswith('YOUR_'):
+        if value and not value.startswith(PLACEHOLDER_PREFIX):
             logger.debug(f"✓ Retrieved {section}.{key} from Doppler (env var)")
             return value
         
@@ -254,7 +258,7 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                     # Extract the computed value (or raw if computed not available)
                     value = secret_data.get('computed', secret_data.get('raw'))
                     # Skip placeholder values
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from Doppler (SDK)")
                         return value
         except ImportError:
@@ -279,19 +283,19 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 # Try exact key match first
                 if key in secret_dict:
                     value = secret_dict[key]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
                 # Try uppercase key (for consistency)
                 if key.upper() in secret_dict:
                     value = secret_dict[key.upper()]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
                 # Try the full env var name
                 if env_var in secret_dict:
                     value = secret_dict[env_var]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from AWS Secrets Manager")
                         return value
         except ImportError:
@@ -319,19 +323,19 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
                 # Try exact key match first
                 if key in data:
                     value = data[key]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
                 # Try uppercase key
                 if key.upper() in data:
                     value = data[key.upper()]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
                 # Try the full env var name
                 if env_var in data:
                     value = data[env_var]
-                    if value and not value.startswith('YOUR_'):
+                    if value and not value.startswith(PLACEHOLDER_PREFIX):
                         logger.debug(f"✓ Retrieved {section}.{key} from HashiCorp Vault")
                         return value
         except ImportError:
@@ -342,12 +346,281 @@ def get_secret(section: str, key: str, default: Optional[str] = None) -> Optiona
     # 4. Fallback to environment variable or .env file
     value = get_config(section, key, default=default)
     # Skip placeholder values (common in template .env files)
-    if value and not value.startswith('YOUR_'):
+    if value and not value.startswith(PLACEHOLDER_PREFIX):
         logger.debug(f"✓ Retrieved {section}.{key} from environment/.env")
         return value
     
-    if value and value.startswith('YOUR_'):
-        logger.warning(f"⚠ Found placeholder value for {section}.{key} in .env (starts with 'YOUR_')")
+    if value and value.startswith(PLACEHOLDER_PREFIX):
+        logger.warning(f"⚠ Found placeholder value for {section}.{key} in .env (starts with '{PLACEHOLDER_PREFIX}')")
     
     logger.debug(f"Secret not found: {section}.{key}")
     return default
+
+
+def get_youtube_accounts() -> list:
+    """
+    Get YouTube accounts configuration with backward compatibility.
+    
+    Supports two formats:
+    1. Legacy single account: YOUTUBE_USERNAME and/or YOUTUBE_CHANNEL_ID
+    2. Multi-account: YOUTUBE_ACCOUNTS JSON array
+    
+    Returns:
+        List of account dicts, each with keys: username, channel_id, name, discord_role
+        Example: [{"username": "@LTT", "discord_role": "123456", "name": "Linus Tech Tips"}]
+    """
+    import json
+    
+    accounts = []
+    
+    # Try new multi-account format first
+    accounts_json = get_config('YouTube', 'accounts')
+    if accounts_json:
+        try:
+            parsed_accounts = json.loads(accounts_json)
+            if isinstance(parsed_accounts, list):
+                for account in parsed_accounts:
+                    if isinstance(account, dict):
+                        # Validate that at least username or channel_id is present
+                        if account.get('username') or account.get('channel_id'):
+                            accounts.append({
+                                'username': account.get('username'),
+                                'channel_id': account.get('channel_id'),
+                                'name': account.get('name'),  # Optional display name
+                                'discord_role': account.get('discord_role')  # Optional role ID
+                            })
+                        else:
+                            logger.warning(f"⚠ Invalid YouTube account config (missing username/channel_id)")
+                    else:
+                        logger.warning(f"⚠ Invalid YouTube account config (not a dict)")
+                
+                if accounts:
+                    logger.info(f"✓ Loaded {len(accounts)} YouTube account(s) from YOUTUBE_ACCOUNTS")
+                    return accounts
+            else:
+                logger.warning(f"⚠ YOUTUBE_ACCOUNTS is not a JSON array")
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠ Failed to parse YOUTUBE_ACCOUNTS JSON: {e}")
+    
+    # Fallback to legacy single account format
+    username = get_config('YouTube', 'username')
+    channel_id = get_config('YouTube', 'channel_id')
+    
+    if username or channel_id:
+        legacy_account = {
+            'username': username,
+            'channel_id': channel_id,
+            'name': None,  # Will be auto-detected from YouTube
+            'discord_role': None,  # Use default Discord role
+            'discord_webhook': None  # Use default Discord webhook
+        }
+        accounts.append(legacy_account)
+        logger.info(f"✓ Using legacy single YouTube account configuration")
+    
+    return accounts
+
+
+def get_bluesky_accounts() -> list:
+    """
+    Get Bluesky accounts configuration with backward compatibility.
+    
+    Supports two formats:
+    1. Legacy single account: BLUESKY_HANDLE and BLUESKY_APP_PASSWORD
+    2. Multi-account: BLUESKY_ACCOUNTS JSON array
+    
+    Returns:
+        List of account dicts, each with keys: handle, app_password, name
+        Example: [{"handle": "user.bsky.social", "app_password": "xxxx", "name": "Personal"}]
+    """
+    import json
+    
+    accounts = []
+    
+    # Try new multi-account format first
+    accounts_json = get_config('Bluesky', 'accounts')
+    if accounts_json:
+        try:
+            parsed_accounts = json.loads(accounts_json)
+            if isinstance(parsed_accounts, list):
+                for account in parsed_accounts:
+                    if isinstance(account, dict):
+                        # Validate required fields
+                        if account.get('handle') and account.get('app_password'):
+                            accounts.append({
+                                'handle': account.get('handle'),
+                                'app_password': account.get('app_password'),
+                                'name': account.get('name')  # Optional display name
+                            })
+                        else:
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Bluesky account config (missing handle/app_password)")
+                    else:
+                        logger.warning(f"⚠ Invalid Bluesky account config (not a dict)")
+                
+                if accounts:
+                    logger.info(f"✓ Loaded {len(accounts)} Bluesky account(s) from BLUESKY_ACCOUNTS")
+                    return accounts
+            else:
+                logger.warning(f"⚠ BLUESKY_ACCOUNTS is not a JSON array")
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠ Failed to parse BLUESKY_ACCOUNTS JSON: {e}")
+    
+    # Fallback to legacy single account format
+    handle = get_config('Bluesky', 'handle')
+    app_password = get_secret('Bluesky', 'app_password')
+    
+    if handle and app_password:
+        legacy_account = {
+            'handle': handle,
+            'app_password': app_password,
+            'name': None  # Will use handle as name
+        }
+        accounts.append(legacy_account)
+        logger.info(f"✓ Using legacy single Bluesky account configuration")
+    
+    return accounts
+
+
+def get_mastodon_accounts() -> list:
+    """
+    Get Mastodon accounts configuration with backward compatibility.
+    
+    Supports two formats:
+    1. Legacy single account: MASTODON_API_BASE_URL, MASTODON_CLIENT_ID, etc.
+    2. Multi-account: MASTODON_ACCOUNTS JSON array
+    
+    Returns:
+        List of account dicts, each with keys: api_base_url, client_id, client_secret, access_token, name
+    """
+    import json
+    
+    accounts = []
+    
+    # Try new multi-account format first
+    accounts_json = get_config('Mastodon', 'accounts')
+    if accounts_json:
+        try:
+            parsed_accounts = json.loads(accounts_json)
+            if isinstance(parsed_accounts, list):
+                for account in parsed_accounts:
+                    if isinstance(account, dict):
+                        # Validate required fields
+                        required = ['api_base_url', 'client_id', 'client_secret', 'access_token']
+                        if all(account.get(field) for field in required):
+                            accounts.append({
+                                'api_base_url': account.get('api_base_url'),
+                                'client_id': account.get('client_id'),
+                                'client_secret': account.get('client_secret'),
+                                'access_token': account.get('access_token'),
+                                'name': account.get('name')  # Optional display name
+                            })
+                        else:
+                            missing = [f for f in required if not account.get(f)]
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Mastodon account config (missing {missing})")
+                    else:
+                        logger.warning(f"⚠ Invalid Mastodon account config (not a dict)")
+                
+                if accounts:
+                    logger.info(f"✓ Loaded {len(accounts)} Mastodon account(s) from MASTODON_ACCOUNTS")
+                    return accounts
+            else:
+                logger.warning(f"⚠ MASTODON_ACCOUNTS is not a JSON array")
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠ Failed to parse MASTODON_ACCOUNTS JSON: {e}")
+    
+    # Fallback to legacy single account format
+    api_base_url = get_config('Mastodon', 'api_base_url')
+    client_id = get_secret('Mastodon', 'client_id')
+    client_secret = get_secret('Mastodon', 'client_secret')
+    access_token = get_secret('Mastodon', 'access_token')
+    
+    if all([api_base_url, client_id, client_secret, access_token]):
+        legacy_account = {
+            'api_base_url': api_base_url,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'access_token': access_token,
+            'name': None  # Will use instance URL as name
+        }
+        accounts.append(legacy_account)
+        logger.info(f"✓ Using legacy single Mastodon account configuration")
+    
+    return accounts
+
+
+def get_matrix_accounts() -> list:
+    """
+    Get Matrix accounts configuration with backward compatibility.
+    
+    Supports two formats:
+    1. Legacy single account: MATRIX_HOMESERVER, MATRIX_ROOM_ID, MATRIX_ACCESS_TOKEN/USERNAME/PASSWORD
+    2. Multi-account: MATRIX_ACCOUNTS JSON array
+    
+    Returns:
+        List of account dicts, each with keys: homeserver, room_id, access_token/username/password, name
+    """
+    import json
+    
+    accounts = []
+    
+    # Try new multi-account format first
+    accounts_json = get_config('Matrix', 'accounts')
+    if accounts_json:
+        try:
+            parsed_accounts = json.loads(accounts_json)
+            if isinstance(parsed_accounts, list):
+                for account in parsed_accounts:
+                    if isinstance(account, dict):
+                        # Validate required fields
+                        homeserver = account.get('homeserver')
+                        room_id = account.get('room_id')
+                        access_token = account.get('access_token')
+                        username = account.get('username')
+                        password = account.get('password')
+                        
+                        # Must have homeserver, room_id, and either access_token or username+password
+                        if homeserver and room_id and (access_token or (username and password)):
+                            accounts.append({
+                                'homeserver': homeserver,
+                                'room_id': room_id,
+                                'access_token': access_token,
+                                'username': username,
+                                'password': password,
+                                'name': account.get('name')  # Optional display name
+                            })
+                        else:
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Matrix account config (missing required fields)")
+                    else:
+                        logger.warning(f"⚠ Invalid Matrix account config (not a dict)")
+                
+                if accounts:
+                    logger.info(f"✓ Loaded {len(accounts)} Matrix account(s) from MATRIX_ACCOUNTS")
+                    return accounts
+            else:
+                logger.warning(f"⚠ MATRIX_ACCOUNTS is not a JSON array")
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠ Failed to parse MATRIX_ACCOUNTS JSON: {e}")
+    
+    # Fallback to legacy single account format
+    homeserver = get_config('Matrix', 'homeserver')
+    room_id = get_config('Matrix', 'room_id')
+    access_token = get_secret('Matrix', 'access_token')
+    username = get_config('Matrix', 'username')
+    password = get_secret('Matrix', 'password')
+    
+    # Must have homeserver, room_id, and either access_token or username+password
+    if homeserver and room_id and (access_token or (username and password)):
+        legacy_account = {
+            'homeserver': homeserver,
+            'room_id': room_id,
+            'access_token': access_token,
+            'username': username,
+            'password': password,
+            'name': None  # Will use room_id as name
+        }
+        accounts.append(legacy_account)
+        logger.info(f"✓ Using legacy single Matrix account configuration")
+    
+    return accounts

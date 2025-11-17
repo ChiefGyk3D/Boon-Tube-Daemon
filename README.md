@@ -11,9 +11,13 @@ Monitor YouTube channels for new video uploads and automatically post unique, AI
 ## ✨ Key Features
 
 - 📺 **YouTube Monitoring**: Detect new video uploads using YouTube Data API v3
+  - **Multi-account support**: Monitor unlimited YouTube channels simultaneously
+  - **Per-channel Discord roles**: Assign different roles for each channel
+  - **Per-channel Discord webhooks**: Route channels to different servers/channels
   - Filters livestreams (only notifies for actual video uploads)
   - Supports regular videos and YouTube Shorts
   - Configurable check interval
+  - Backward compatible with single-account configs
   
 - 🤖 **AI-Powered Posts**: Gemini 2.5 Flash Lite generates unique content per platform
   - Platform-specific tone configuration (professional/conversational/detailed/concise)
@@ -24,7 +28,9 @@ Monitor YouTube channels for new video uploads and automatically post unique, AI
   
 - 📢 **Multi-Platform Notifications**: Post to multiple social platforms simultaneously
   - **Discord**: Rich embeds with platform-specific roles and webhooks
-  - **Matrix**: Professional messaging with auto token rotation
+  - **Bluesky**: Multi-account cross-posting with rich text and embed cards
+  - **Mastodon**: Multi-instance support for cross-posting across fediverse
+  - **Matrix**: Multi-room/multi-homeserver support with auto token rotation
   - **Bluesky**: ATProto integration with rich text and clickable links
   - **Mastodon**: Full API support with media attachments
   
@@ -131,10 +137,11 @@ Boon-Tube-Daemon/
 
 - 📖 [Platform Status](PLATFORM_STATUS.md) - Current platform support details
 - ⚡ [Quick Start Guide](docs/QUICKSTART.md) - Detailed setup instructions
+- 🎯 **[Multi-Account Migration Guide](docs/MULTI_ACCOUNT_MIGRATION.md)** - Monitor multiple YouTube channels
 - 🔧 [Platform Setup Guides](docs/setup/) - Discord, Matrix, Bluesky, Mastodon
-- �️ [Utility Scripts](scripts/README.md) - Installation and secrets management
+- 🛠️ [Utility Scripts](scripts/README.md) - Installation and secrets management
 - 🐳 [Docker Guide](docker/README.md) - Docker deployment and GHCR
-- �🔑 [Doppler Setup](docs/DOPPLER_SETUP.md) - Secrets management
+- 🔑 [Doppler Setup](docs/DOPPLER_SETUP.md) - Secrets management
 - 📺 [YouTube Setup](docs/YOUTUBE_SETUP.md) - API key configuration
 - 🤝 [Contributing Guide](docs/CONTRIBUTING.md) - Development guidelines
 - 📋 [Changelog](docs/CHANGELOG.md) - Version history

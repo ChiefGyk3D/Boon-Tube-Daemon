@@ -91,9 +91,17 @@ class DiscordPlatform:
         if not self.enabled:
             return None
         
-        # Determine which webhook to use for this platform
+        # Determine which webhook to use - priority order:
+        # 1. Channel-specific webhook (from stream_data['discord_webhook'] for multi-account YouTube)
+        # 2. Platform-specific webhook (from self.webhook_urls)
+        # 3. Default webhook (from self.webhook_url)
         webhook_url = None
-        if platform_name and platform_name.lower() in self.webhook_urls:
+        
+        if stream_data and stream_data.get('discord_webhook'):
+            # Use channel-specific webhook (e.g., different Discord server/channel per YouTube channel)
+            webhook_url = stream_data['discord_webhook']
+            logger.debug(f"Using channel-specific webhook for {platform_name}")
+        elif platform_name and platform_name.lower() in self.webhook_urls:
             # Use platform-specific webhook if available
             webhook_url = self.webhook_urls[platform_name.lower()]
         else:
@@ -187,15 +195,22 @@ class DiscordPlatform:
             # Build content: LLM message + role mention
             content = message  # Start with the LLM-generated message
             
-            # Add role mention if configured for this platform
-            # Normalize platform name (strip suffixes like -videos, -livestreams)
-            platform_base = platform_name.lower().split('-')[0] if platform_name else None
-            if platform_base and platform_base in self.role_mentions:
-                role_id = self.role_mentions[platform_base]
-                content += f" <@&{role_id}>"
-            elif self.role_id:
-                # Use default role if no platform-specific role
-                content += f" <@&{self.role_id}>"
+            # Add role mention - priority order:
+            # 1. Channel-specific role (from stream_data['discord_role'] for multi-account YouTube)
+            # 2. Platform-specific role (from self.role_mentions)
+            # 3. Default role (from self.role_id)
+            if stream_data and stream_data.get('discord_role'):
+                # Use channel-specific role (e.g., for different YouTube channels)
+                content += f" <@&{stream_data['discord_role']}>"
+            else:
+                # Normalize platform name (strip suffixes like -videos, -livestreams)
+                platform_base = platform_name.lower().split('-')[0] if platform_name else None
+                if platform_base and platform_base in self.role_mentions:
+                    role_id = self.role_mentions[platform_base]
+                    content += f" <@&{role_id}>"
+                elif self.role_id:
+                    # Use default role if no platform-specific or channel-specific role
+                    content += f" <@&{self.role_id}>"
             
             # Build webhook payload
             data = {}
