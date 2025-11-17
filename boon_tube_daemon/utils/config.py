@@ -452,9 +452,8 @@ def get_bluesky_accounts() -> list:
                                 'name': account.get('name')  # Optional display name
                             })
                         else:
-                            # Log only non-sensitive field to avoid exposing app_password
-                            handle = account.get('handle', 'unknown') if isinstance(account, dict) else 'unknown'
-                            logger.warning(f"⚠ Invalid Bluesky account config (missing handle/app_password): handle={handle}")
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Bluesky account config (missing handle/app_password)")
                     else:
                         logger.warning(f"⚠ Invalid Bluesky account config (not a dict)")
                 
@@ -517,9 +516,8 @@ def get_mastodon_accounts() -> list:
                             })
                         else:
                             missing = [f for f in required if not account.get(f)]
-                            # Log only non-sensitive field to avoid exposing secrets
-                            api_url = account.get('api_base_url', 'unknown') if isinstance(account, dict) else 'unknown'
-                            logger.warning(f"⚠ Invalid Mastodon account config (missing {missing}): api_base_url={api_url}")
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Mastodon account config (missing {missing})")
                     else:
                         logger.warning(f"⚠ Invalid Mastodon account config (not a dict)")
                 
@@ -592,10 +590,8 @@ def get_matrix_accounts() -> list:
                                 'name': account.get('name')  # Optional display name
                             })
                         else:
-                            # Log only non-sensitive fields to avoid exposing credentials
-                            hs = homeserver or 'unknown'
-                            rid = room_id or 'unknown'
-                            logger.warning(f"⚠ Invalid Matrix account config (missing required fields): homeserver={hs}, room_id={rid}")
+                            # Don't log any account fields to avoid CodeQL taint analysis warnings
+                            logger.warning(f"⚠ Invalid Matrix account config (missing required fields)")
                     else:
                         logger.warning(f"⚠ Invalid Matrix account config (not a dict)")
                 

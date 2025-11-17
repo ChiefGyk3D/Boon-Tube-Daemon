@@ -59,7 +59,9 @@ class MastodonPlatform(SocialPlatform):
             return False
         
         # Authenticate all accounts
-        for idx, account_config in enumerate(account_configs, 1):
+        account_num = 0  # Separate counter to avoid taint from enumerate
+        for account_config in account_configs:
+            account_num += 1
             client_id = account_config.get('client_id')
             client_secret = account_config.get('client_secret')
             access_token = account_config.get('access_token')
@@ -71,7 +73,7 @@ class MastodonPlatform(SocialPlatform):
                 if not client_secret: missing.append('client_secret')
                 if not access_token: missing.append('access_token')
                 if not api_base_url: missing.append('api_base_url')
-                logger.warning(f"✗ Mastodon account #{idx} missing credentials: {', '.join(missing)}")
+                logger.warning(f"✗ Mastodon account #{account_num} missing credentials: {', '.join(missing)}")
                 continue
             
             try:
@@ -84,12 +86,11 @@ class MastodonPlatform(SocialPlatform):
                 
                 self.accounts.append({
                     'client': client,
-                    'api_base_url': api_base_url,
-                    'index': idx
+                    'api_base_url': api_base_url
                 })
-                logger.info(f"✓ Mastodon: Authenticated account #{idx}")
+                logger.info(f"✓ Mastodon: Authenticated account #{len(self.accounts)}")
             except Exception as e:
-                logger.warning(f"✗ Mastodon authentication failed for account #{idx}: {type(e).__name__}")
+                logger.warning(f"✗ Mastodon authentication failed for account #{account_num}: {type(e).__name__}")
                 continue
         
         if not self.accounts:
@@ -107,9 +108,10 @@ class MastodonPlatform(SocialPlatform):
         post_ids = []
         
         # Post to all configured Mastodon accounts
+        account_num = 0
         for account in self.accounts:
+            account_num += 1
             client = account['client']
-            account_idx = account['index']
             
             try:
                 # Check if we should attach a thumbnail image
@@ -158,12 +160,12 @@ class MastodonPlatform(SocialPlatform):
                                     
                                     media = client.media_post(tmp_path, description=description)
                                     media_ids.append(media['id'])
-                                    logger.info(f"✓ Uploaded thumbnail to Mastodon account #{account_idx} (media ID: {media['id']})")
+                                    logger.info(f"✓ Uploaded thumbnail to Mastodon account #{account_num} (media ID: {media['id']})")
                                 finally:
                                     # Clean up temp file
                                     os.unlink(tmp_path)
                         except Exception as img_error:
-                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account #{account_idx}: {type(img_error).__name__}")
+                            logger.warning(f"⚠ Could not upload thumbnail to Mastodon account #{account_num}: {type(img_error).__name__}")
                 
                 # Post as a reply if reply_to_id is provided (threading)
                 status = client.status_post(
@@ -173,10 +175,10 @@ class MastodonPlatform(SocialPlatform):
                 )
                 post_id = str(status['id'])
                 post_ids.append(post_id)
-                logger.info(f"✓ Mastodon: Posted to account #{account_idx}")
+                logger.info(f"✓ Mastodon: Posted to account #{account_num}")
                 
             except Exception as e:
-                logger.error(f"✗ Mastodon post failed for account #{account_idx}: {type(e).__name__}")
+                logger.error(f"✗ Mastodon post failed for account #{account_num}: {type(e).__name__}")
                 continue
         
         # Return first post ID for compatibility, or None if all failed

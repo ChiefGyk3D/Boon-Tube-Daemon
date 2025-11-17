@@ -53,7 +53,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.client = build('youtube', 'v3', developerKey=api_key)
             
             # Resolve channel IDs for all accounts
-            for idx, account in enumerate(account_configs, 1):
+            for account in account_configs:
                 channel_id = account.get('channel_id')
                 username = account.get('username')
                 
@@ -61,17 +61,14 @@ class YouTubeVideosPlatform(MediaPlatform):
                 if not channel_id and username:
                     channel_id = self._get_channel_id_from_username(username)
                     if not channel_id:
-                        logger.warning(f"✗ Could not find YouTube channel for username: {username}")
+                        logger.warning(f"✗ Could not find YouTube channel (username lookup failed)")
                         continue
                     account['channel_id'] = channel_id
                 
                 if channel_id:
-                    # Add index for safe logging (instead of using tainted 'name' field)
-                    account['index'] = idx
-                    
                     self.accounts.append(account)
                     self.last_video_ids[channel_id] = None
-                    logger.info(f"✓ YouTube: Monitoring {account['name']} (ID: {channel_id[:15]}...)")
+                    logger.info(f"✓ YouTube: Monitoring account #{len(self.accounts)} (channel ID: {channel_id[:15]}...)")
             
             if not self.accounts:
                 logger.warning("✗ No valid YouTube accounts could be initialized")
@@ -299,7 +296,9 @@ class YouTubeVideosPlatform(MediaPlatform):
             return False, None
         
         # Check all accounts for new videos
+        account_num = 0
         for account in self.accounts:
+            account_num += 1
             channel_id = account['channel_id']
             
             # Get latest video for this channel
@@ -313,13 +312,13 @@ class YouTubeVideosPlatform(MediaPlatform):
             # Check if this is a new video for this channel
             if self.last_video_ids[channel_id] is None:
                 # First run for this channel - don't notify, just track
-                logger.info(f"📹 YouTube: Initialized tracking for account #{account['index']}")
+                logger.info(f"📹 YouTube: Initialized tracking for account #{account_num}")
                 self.last_video_ids[channel_id] = current_video_id
                 continue
             
             if current_video_id != self.last_video_ids[channel_id]:
                 # New video detected for this channel!
-                logger.info(f"🎬 YouTube (account #{account['index']}): New video: {video_data.get('title')[:50]}...")
+                logger.info(f"🎬 YouTube (account #{account_num}): New video: {video_data.get('title')[:50]}...")
                 self.last_video_ids[channel_id] = current_video_id
                 
                 # Add account info to video_data
