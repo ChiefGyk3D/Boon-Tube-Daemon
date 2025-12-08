@@ -112,7 +112,24 @@ class GeminiLLM:
                 
                 # Make API call
                 response = self.model.generate_content(prompt)
-                return response.text.strip()
+                result = response.text.strip()
+                
+                # Fix escaped newlines and other escape sequences
+                # Sometimes LLM returns strings with literal \n instead of actual newlines
+                if '\\n' in result:
+                    logger.debug(f"Detected escaped newlines in LLM response, decoding...")
+                    # Decode common escape sequences
+                    result = result.replace('\\n', '\n')
+                    result = result.replace('\\t', '\t')
+                    result = result.replace('\\r', '\r')
+                    # Also handle if the response is wrapped in quotes
+                    if result.startswith('"') and result.endswith('"'):
+                        result = result[1:-1]
+                    elif result.startswith("'") and result.endswith("'"):
+                        result = result[1:-1]
+                    result = result.strip()
+                
+                return result
                 
             except Exception as e:
                 last_error = e
