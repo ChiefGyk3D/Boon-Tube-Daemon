@@ -116,17 +116,24 @@ class GeminiLLM:
                 
                 # Fix escaped newlines and other escape sequences
                 # Sometimes LLM returns strings with literal \n instead of actual newlines
+                # This is a common issue when LLM treats the output as a string representation
+                # Note: This is safe for our use case (social media posts) as we don't expect
+                # file paths or other content with legitimate backslash-n sequences
                 if '\\n' in result:
                     logger.debug(f"Detected escaped newlines in LLM response, decoding...")
+                    # First check if response is wrapped in quotes (indicates string representation)
+                    is_quoted = (result.startswith('"') and result.endswith('"')) or \
+                               (result.startswith("'") and result.endswith("'"))
+                    
                     # Decode common escape sequences
                     result = result.replace('\\n', '\n')
                     result = result.replace('\\t', '\t')
                     result = result.replace('\\r', '\r')
-                    # Also handle if the response is wrapped in quotes
-                    if result.startswith('"') and result.endswith('"'):
+                    
+                    # Remove quotes if present
+                    if is_quoted:
                         result = result[1:-1]
-                    elif result.startswith("'") and result.endswith("'"):
-                        result = result[1:-1]
+                    
                     result = result.strip()
                 
                 return result

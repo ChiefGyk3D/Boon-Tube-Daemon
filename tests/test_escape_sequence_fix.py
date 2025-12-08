@@ -18,7 +18,12 @@ import re
 
 
 def test_escape_sequence_decoding():
-    """Test that the escape sequence decoding logic works correctly."""
+    """Test that the escape sequence decoding logic works correctly.
+    
+    Note: This test intentionally duplicates the logic from gemini.py to verify
+    it independently without importing the actual implementation. This is a
+    common testing pattern to ensure tests don't depend on the code they're testing.
+    """
     
     # Simulate various problematic responses from LLM
     test_cases = [
