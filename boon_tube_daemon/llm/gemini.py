@@ -121,18 +121,16 @@ class GeminiLLM:
                 # file paths or other content with legitimate backslash-n sequences
                 if '\\n' in result:
                     logger.debug(f"Detected escaped newlines in LLM response, decoding...")
-                    # First check if response is wrapped in quotes (indicates string representation)
-                    is_quoted = (result.startswith('"') and result.endswith('"')) or \
-                               (result.startswith("'") and result.endswith("'"))
                     
-                    # Decode common escape sequences
+                    # First, remove quotes if response is wrapped (indicates string representation)
+                    if (result.startswith('"') and result.endswith('"')) or \
+                       (result.startswith("'") and result.endswith("'")):
+                        result = result[1:-1]
+                    
+                    # Then decode common escape sequences
                     result = result.replace('\\n', '\n')
                     result = result.replace('\\t', '\t')
                     result = result.replace('\\r', '\r')
-                    
-                    # Remove quotes if present
-                    if is_quoted:
-                        result = result[1:-1]
                     
                     result = result.strip()
                 

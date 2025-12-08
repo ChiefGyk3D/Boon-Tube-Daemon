@@ -32,15 +32,15 @@ def apply_fix(text):
     
     # Fix escaped newlines and other escape sequences
     if '\\n' in result:
-        # Decode common escape sequences
+        # First, remove quotes if response is wrapped
+        if (result.startswith('"') and result.endswith('"')) or \
+           (result.startswith("'") and result.endswith("'")):
+            result = result[1:-1]
+        
+        # Then decode common escape sequences
         result = result.replace('\\n', '\n')
         result = result.replace('\\t', '\t')
         result = result.replace('\\r', '\r')
-        # Also handle if the response is wrapped in quotes
-        if result.startswith('"') and result.endswith('"'):
-            result = result[1:-1]
-        elif result.startswith("'") and result.endswith("'"):
-            result = result[1:-1]
         result = result.strip()
     
     return result

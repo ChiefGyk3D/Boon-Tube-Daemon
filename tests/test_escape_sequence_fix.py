@@ -66,15 +66,15 @@ def test_escape_sequence_decoding():
         
         # Apply the fix logic (same as in gemini.py)
         if '\\n' in notification:
-            # Decode common escape sequences
+            # First, remove quotes if response is wrapped
+            if (notification.startswith('"') and notification.endswith('"')) or \
+               (notification.startswith("'") and notification.endswith("'")):
+                notification = notification[1:-1]
+            
+            # Then decode common escape sequences
             notification = notification.replace('\\n', '\n')
             notification = notification.replace('\\t', '\t')
             notification = notification.replace('\\r', '\r')
-            # Also handle if the response is wrapped in quotes
-            if notification.startswith('"') and notification.endswith('"'):
-                notification = notification[1:-1]
-            elif notification.startswith("'") and notification.endswith("'"):
-                notification = notification[1:-1]
             notification = notification.strip()
         
         # Check if output matches expected
@@ -120,13 +120,15 @@ def test_no_false_positives():
         
         # Apply the fix logic
         if '\\n' in notification:
+            # First, remove quotes if response is wrapped
+            if (notification.startswith('"') and notification.endswith('"')) or \
+               (notification.startswith("'") and notification.endswith("'")):
+                notification = notification[1:-1]
+            
+            # Then decode common escape sequences
             notification = notification.replace('\\n', '\n')
             notification = notification.replace('\\t', '\t')
             notification = notification.replace('\\r', '\r')
-            if notification.startswith('"') and notification.endswith('"'):
-                notification = notification[1:-1]
-            elif notification.startswith("'") and notification.endswith("'"):
-                notification = notification[1:-1]
             notification = notification.strip()
         
         # Should be unchanged
