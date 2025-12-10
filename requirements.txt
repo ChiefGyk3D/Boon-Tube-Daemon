@@ -17,8 +17,8 @@ python-dateutil==2.9.0.post0
 # YouTube API
 google-api-python-client==2.187.0
 
-# TikTok monitoring via Playwright (no TikTokApi package needed) commented out as still under dev
-#playwright==1.57.0
+# TikTok monitoring via Playwright (no TikTokApi package needed) 
+playwright==1.57.0
 
 # Social Media Platforms
 Mastodon.py==2.1.4
