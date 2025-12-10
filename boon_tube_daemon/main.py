@@ -13,8 +13,25 @@ import logging
 import time
 import signal
 import sys
+from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
+
+from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
+from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
+from boon_tube_daemon.social.discord import DiscordPlatform
+from boon_tube_daemon.social.matrix import MatrixPlatform
+from boon_tube_daemon.social.bluesky import BlueskyPlatform
+from boon_tube_daemon.social.mastodon import MastodonPlatform
+from boon_tube_daemon.llm.gemini import GeminiLLM
+
+# TikTok support is optional (requires Playwright)
+try:
+    from boon_tube_daemon.media.tiktok import TikTokPlatform
+    TIKTOK_AVAILABLE = True
+except ImportError:
+    TikTokPlatform = None
+    TIKTOK_AVAILABLE = False
 
 # Configure logging with local timezone
 logging.Formatter.converter = time.localtime
@@ -25,29 +42,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-# Import configuration
-from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
-
-# Import media platforms
-from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
-
-# TikTok support is optional (requires Playwright)
-try:
-    from boon_tube_daemon.media.tiktok import TikTokPlatform
-    TIKTOK_AVAILABLE = True
-except ImportError:
-    TikTokPlatform = None
-    TIKTOK_AVAILABLE = False
-
-# Import social platforms
-from boon_tube_daemon.social.discord import DiscordPlatform
-from boon_tube_daemon.social.matrix import MatrixPlatform
-from boon_tube_daemon.social.bluesky import BlueskyPlatform
-from boon_tube_daemon.social.mastodon import MastodonPlatform
-
-# Import LLM
-from boon_tube_daemon.llm.gemini import GeminiLLM
 
 
 class BoonTubeDaemon:
@@ -64,11 +58,10 @@ class BoonTubeDaemon:
         """Initialize daemon and all platforms."""
         # Show banner
         try:
-            from pathlib import Path
             banner_path = Path(__file__).parent.parent / "docs" / "BANNER.txt"
             if banner_path.exists():
                 print(banner_path.read_text())
-        except:
+        except Exception:
             pass
         
         logger.info("="*60)
@@ -169,7 +162,7 @@ class BoonTubeDaemon:
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
-        logger.info(f"\n🎉 NEW VIDEO DETECTED!")
+        logger.info("\n🎉 NEW VIDEO DETECTED!")
         logger.info(f"   Platform: {platform.name}")
         logger.info(f"   Title: {video_data.get('title')}")
         logger.info(f"   URL: {video_data.get('url')}")

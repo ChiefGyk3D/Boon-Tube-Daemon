@@ -112,7 +112,29 @@ class GeminiLLM:
                 
                 # Make API call
                 response = self.model.generate_content(prompt)
-                return response.text.strip()
+                result = response.text.strip()
+                
+                # Fix escaped newlines and other escape sequences
+                # Sometimes LLM returns strings with literal \n instead of actual newlines
+                # This is a common issue when LLM treats the output as a string representation
+                # Note: This is safe for our use case (social media posts) as we don't expect
+                # file paths or other content with legitimate backslash-n sequences
+                if '\\n' in result:
+                    logger.debug("Detected escaped newlines in LLM response, decoding...")
+                    
+                    # First, remove quotes if response is wrapped (indicates string representation)
+                    if (result.startswith('"') and result.endswith('"')) or \
+                       (result.startswith("'") and result.endswith("'")):
+                        result = result[1:-1]
+                    
+                    # Then decode common escape sequences
+                    result = result.replace('\\n', '\n')
+                    result = result.replace('\\t', '\t')
+                    result = result.replace('\\r', '\r')
+                    
+                    result = result.strip()
+                
+                return result
                 
             except Exception as e:
                 last_error = e
@@ -295,7 +317,6 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             
             # Get platform-specific posting style from config
             social_platform_lower = social_platform.lower()
-            style_key = f"{social_platform_lower.title()}_post_style"
             
             # Default styles per platform
             default_styles = {
