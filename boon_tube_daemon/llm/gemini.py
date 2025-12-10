@@ -120,7 +120,7 @@ class GeminiLLM:
                 # Note: This is safe for our use case (social media posts) as we don't expect
                 # file paths or other content with legitimate backslash-n sequences
                 if '\\n' in result:
-                    logger.debug(f"Detected escaped newlines in LLM response, decoding...")
+                    logger.debug("Detected escaped newlines in LLM response, decoding...")
                     
                     # First, remove quotes if response is wrapped (indicates string representation)
                     if (result.startswith('"') and result.endswith('"')) or \
@@ -317,7 +317,6 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             
             # Get platform-specific posting style from config
             social_platform_lower = social_platform.lower()
-            style_key = f"{social_platform_lower.title()}_post_style"
             
             # Default styles per platform
             default_styles = {
