@@ -141,6 +141,23 @@ docker_install() {
         echo "  $COMPOSE_CMD logs -f"
     fi
     
+    # Ensure Docker starts on boot
+    echo ""
+    if ! systemctl is-enabled docker &>/dev/null; then
+        read -p "🔄 Enable Docker to start on boot? [Y/n]: " ENABLE_DOCKER
+        ENABLE_DOCKER=${ENABLE_DOCKER:-Y}
+        
+        if [[ $ENABLE_DOCKER =~ ^[Yy]$ ]]; then
+            echo "Enabling Docker service..."
+            sudo systemctl enable docker
+            echo "✓ Docker will start on boot"
+            echo "✓ Container will auto-restart with Docker (restart: unless-stopped)"
+        fi
+    else
+        echo "✓ Docker is already enabled to start on boot"
+        echo "✓ Container will auto-restart with Docker (restart: unless-stopped)"
+    fi
+    
     # Summary
     echo ""
     echo "=================================="
@@ -154,6 +171,7 @@ docker_install() {
     echo "  $COMPOSE_CMD pull         # Update to latest image"
     echo "  $COMPOSE_CMD up -d --build # Rebuild and restart"
     echo ""
+    echo "The container will automatically restart on boot."
     echo "Don't forget to edit .env with your API keys!"
     echo ""
 }
