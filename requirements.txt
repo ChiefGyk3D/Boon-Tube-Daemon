@@ -22,7 +22,7 @@ playwright==1.57.0
 
 # Social Media Platforms
 Mastodon.py==2.1.4
-atproto==0.0.64  # Bluesky AT Protocol
+atproto==0.0.65  # Bluesky AT Protocol
 
 # Configuration
 python-dotenv==1.2.1
