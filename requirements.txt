@@ -17,12 +17,12 @@ python-dateutil==2.9.0.post0
 # YouTube API
 google-api-python-client==2.187.0
 
-# TikTok monitoring via Playwright (no TikTokApi package needed)
-playwright==1.55.0
+# TikTok monitoring via Playwright (no TikTokApi package needed) 
+playwright==1.57.0
 
 # Social Media Platforms
 Mastodon.py==2.1.4
-atproto==0.0.63  # Bluesky AT Protocol
+atproto==0.0.64  # Bluesky AT Protocol
 
 # Configuration
 python-dotenv==1.2.1
@@ -38,6 +38,6 @@ doppler-sdk==1.3.0  # Doppler SDK for Python
 # Development/Testing (for CI/CD)
 pytest==8.4.2
 pytest-cov==7.0.0
-ruff==0.14.4
-bandit==1.8.6
+ruff==0.14.8
+bandit==1.9.2
 safety==3.7.0
