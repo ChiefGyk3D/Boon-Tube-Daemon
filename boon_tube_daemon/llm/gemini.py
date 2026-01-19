@@ -291,6 +291,21 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             logger.error(f"Error generating hashtags: {e}")
             return None
     
+    def generate_notification(self, video_data: dict, platform_name: str, social_platform: str) -> Optional[str]:
+        """
+        Generate a platform-specific notification message (unified interface).
+        Alias for enhance_notification for consistency with Ollama provider.
+        
+        Args:
+            video_data: Video information dict (title, description, url, etc.)
+            platform_name: Source platform name (YouTube, TikTok, etc.)
+            social_platform: Target social platform (discord, matrix, bluesky, mastodon)
+            
+        Returns:
+            Generated notification text or None on error
+        """
+        return self.enhance_notification(video_data, platform_name, social_platform)
+    
     def enhance_notification(self, video_data: Dict[str, Any], platform_name: str, social_platform: str) -> Optional[str]:
         """
         Generate a platform-specific enhanced notification message with AI.
@@ -380,27 +395,26 @@ Matrix-specific guidelines:
 Write the announcement now WITHOUT including any URLs:"""
 
             elif social_platform_lower == 'bluesky':
-                # Bluesky has 300 char limit. YouTube URLs are ~43 chars, so leave room
-                # 300 total - 43 URL - 2 newlines = 255 chars for content
-                prompt = f"""Create an engaging Bluesky post for this new {platform_name} video.
+                # Bluesky has 300 GRAPHEME limit (not bytes). YouTube URLs are ~43 chars.
+                # 300 total - 43 URL - 2 newlines - 5 buffer = 250 chars for content
+                # Being conservative because emojis count as multiple graphemes
+                bluesky_content_limit = 250
+                prompt = f"""Create a SHORT Bluesky post for this new {platform_name} video.
 
 Title: {title}
-Description: {cleaned_desc}
 
 Style: {post_style}
 {style_instruction}
 
-Bluesky-specific guidelines:
-- CRITICAL: Stay under 255 characters (URL will be added separately, Bluesky limit is 300 total)
-- Count EVERY character including spaces, emojis, and hashtags
-- NO platform greetings like "Hey Bluesky!" - wastes precious characters
-- NO meta text like "Here's a post:" or "Bluesky draft:" - just write the actual post
-- NO placeholder URLs like "youtube.com/watch/example" or "[YouTube Link]" - the actual URL will be added automatically
-- Include 2-3 SHORT hashtags (#Linux not #LinuxForBeginners)
-- Put hashtags at the end
-- Keep main text to ~220 chars to leave room for hashtags
+BLUESKY RULES (MUST FOLLOW):
+- ABSOLUTE MAXIMUM: {bluesky_content_limit} characters total (this is NON-NEGOTIABLE)
+- The URL will be added automatically - DO NOT include any URLs
+- Include 2-3 SHORT hashtags at the end (counts toward limit)
+- NO greetings, NO meta text, NO placeholder URLs
+- Emojis count as 2+ characters each - use sparingly
+- Aim for 200-230 characters to be safe
 
-Write ONLY the post content WITHOUT any URLs (must be under 255 chars):"""
+Write ONLY the post text (under {bluesky_content_limit} chars, no URLs):"""
 
             elif social_platform_lower == 'mastodon':
                 # Mastodon has 500 char limit. YouTube URLs are ~43 chars, so leave room
@@ -453,6 +467,28 @@ Write the post now:"""
             for pattern in meta_patterns:
                 notification = re.sub(pattern, '', notification, flags=re.IGNORECASE | re.MULTILINE)
             notification = notification.strip()
+            
+            # Remove any URLs the LLM might have included (we add the real one)
+            notification = re.sub(r'https?://[^\s]+', '', notification).strip()
+            
+            # BLUESKY: Enforce hard character limit BEFORE adding URL
+            # Bluesky limit is 300 graphemes. URL is ~43 chars + 2 newlines = 45
+            # Leave buffer for grapheme counting differences (emojis, etc.)
+            if social_platform_lower == 'bluesky':
+                max_content_length = 250  # 300 - 43 URL - 2 newlines - 5 buffer
+                if len(notification) > max_content_length:
+                    logger.warning(f"Bluesky content too long ({len(notification)} chars), truncating to {max_content_length}")
+                    # Try to truncate at a word boundary before the limit
+                    truncated = notification[:max_content_length]
+                    # Find last space to avoid cutting mid-word
+                    last_space = truncated.rfind(' ')
+                    if last_space > max_content_length - 50:  # Only if we don't lose too much
+                        truncated = truncated[:last_space]
+                    # Try to preserve hashtags if they were at the end
+                    hashtag_match = re.search(r'((?:\s*#\w+)+)\s*$', notification)
+                    if hashtag_match and len(truncated) + len(hashtag_match.group(1)) <= max_content_length:
+                        truncated = truncated.rstrip() + hashtag_match.group(1)
+                    notification = truncated.strip()
             
             # Ensure URL is included (should be from LLM, but double-check)
             if url and url not in notification:

@@ -15,7 +15,9 @@ Monitor YouTube channels for new video uploads and automatically post unique, AI
   - Supports regular videos and YouTube Shorts
   - Configurable check interval
   
-- 🤖 **AI-Powered Posts**: Gemini 2.5 Flash Lite generates unique content per platform
+- 🤖 **AI-Powered Posts**: Choose between Ollama (local) or Gemini (cloud) for AI-generated content
+  - **Ollama**: Privacy-first local LLM, no API costs, unlimited usage ([Setup Guide](docs/features/ollama-setup.md))
+  - **Gemini**: Cloud API, easier setup, 15 req/min free tier
   - Platform-specific tone configuration (professional/conversational/detailed/concise)
   - Smart content summarization with sponsor/URL removal
   - Auto-generated hashtags
@@ -59,20 +61,44 @@ cd Boon-Tube-Daemon
 cp .env.example .env
 nano .env  # Configure YouTube channel, platform settings
 
-# 3. Setup Doppler secrets (recommended)
-doppler setup
-# Add secrets: YOUTUBE_API_KEY, GEMINI_API_KEY, platform credentials
+# 3. Setup AI provider (choose one)
 
-# 4. Test individual platforms
+# Option 1: Ollama (local, privacy-first, no costs)
+# Install on your LLM server:
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull gemma2:2b
+ollama serve
+
+# In .env:
+LLM_ENABLE=true
+LLM_PROVIDER=ollama
+LLM_OLLAMA_HOST=http://localhost  # Or your server IP
+LLM_OLLAMA_PORT=11434
+LLM_MODEL=gemma2:2b
+LLM_ENHANCE_NOTIFICATIONS=true
+
+# Option 2: Google Gemini (cloud API)
+# Get API key from: https://aistudio.google.com/app/apikey
+# In Doppler or .env:
+LLM_ENABLE=true
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_api_key_here
+LLM_ENHANCE_NOTIFICATIONS=true
+
+# 4. Test Ollama (if using)
+python3 tests/test_ollama.py
+
+# 5. Test platforms
 cd tests
 python test_youtube.py
-python test_discord_integration.py
 python test_all_platforms.py
 
-# 5. Run daemon
+# 6. Run daemon
 doppler run -- python boon_tube_daemon/main.py
+# Or without Doppler:
+python3 main.py
 
-# 6. Deploy as systemd service (optional)
+# 7. Deploy as systemd service (optional)
 sudo ./scripts/install-systemd.sh
 sudo systemctl start boon-tube-daemon
 sudo systemctl enable boon-tube-daemon
@@ -106,7 +132,8 @@ Boon-Tube-Daemon/
 │   │   ├── bluesky.py         # Bluesky ATProto
 │   │   └── mastodon.py        # Mastodon API
 │   ├── llm/                    # AI enhancement
-│   │   └── gemini.py          # Gemini 2.5 Flash Lite
+│   │   ├── gemini.py          # Gemini 2.5 Flash Lite (cloud)
+│   │   └── ollama.py          # Ollama local LLM (privacy-first)
 │   ├── utils/                  # Utilities
 │   │   ├── config.py          # Configuration management
 │   │   └── secrets.py         # Doppler integration
@@ -131,6 +158,7 @@ Boon-Tube-Daemon/
 
 - 📖 [Platform Status](PLATFORM_STATUS.md) - Current platform support details
 - ⚡ [Quick Start Guide](docs/QUICKSTART.md) - Detailed setup instructions
+- 🤖 [Ollama Setup Guide](docs/features/ollama-setup.md) - **Local AI setup (recommended)**
 - 🔧 [Platform Setup Guides](docs/setup/) - Discord, Matrix, Bluesky, Mastodon
 - �️ [Utility Scripts](scripts/README.md) - Installation and secrets management
 - 🐳 [Docker Guide](docker/README.md) - Docker deployment and GHCR
@@ -165,8 +193,10 @@ MASTODON_POST_STYLE=detailed
 ### Core
 - Python 3.8+
 - YouTube Data API v3 key
-- Gemini API key (for AI enhancement)
-- Doppler CLI (recommended for secrets management)
+- **AI Provider (choose one):**
+  - **Ollama** (recommended): Local LLM server, no API costs ([Setup Guide](docs/features/ollama-setup.md))
+  - **Gemini**: API key from Google AI Studio
+- Doppler CLI (optional, for secrets management)
 
 ### Social Platforms (at least one required)
 - **Discord**: Webhook URL, optional role IDs
@@ -179,7 +209,22 @@ MASTODON_POST_STYLE=detailed
 ### AI-Generated Posts
 Each platform receives a unique, AI-generated post based on the video content:
 
-- **Content Analysis**: Gemini analyzes video title, description, and metadata
+**Provider Options:**
+- **Ollama (Recommended)**: Privacy-first local LLM with no API costs
+  - Run on your own hardware
+  - No data sent to external services
+  - No rate limits
+  - Models: gemma2:2b, gemma3:4b, llama3.2:3b, mistral:7b, etc.
+  - See [Ollama Setup Guide](docs/features/ollama-setup.md)
+
+- **Google Gemini**: Cloud API alternative
+  - Easier initial setup
+  - No local hardware needed
+  - 15 requests/minute (free tier)
+  - Gemini 2.5 Flash Lite model
+
+**Features:**
+- **Content Analysis**: AI analyzes video title, description, and metadata
 - **Sponsor Removal**: Automatically strips sponsor sections and promotional URLs
 - **Smart Summarization**: Creates engaging summaries appropriate for each platform
 - **Hashtag Generation**: Adds relevant hashtags based on content
