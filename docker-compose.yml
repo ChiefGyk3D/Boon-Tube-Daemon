@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   boon-tube-daemon:
     # Use pre-built image from GitHub Container Registry

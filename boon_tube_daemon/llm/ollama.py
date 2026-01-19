@@ -161,7 +161,8 @@ class OllamaLLM:
                 
                 # Don't retry on permanent errors
                 if any(perm in error_str for perm in ['not found', 'invalid', 'unauthorized']):
-                    logger.error(f"Ollama API permanent error: {e}")
+                    logger.error("Ollama API permanent error")
+                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     return None
                 
                 # Retry on transient errors

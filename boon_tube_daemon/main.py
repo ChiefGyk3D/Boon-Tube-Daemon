@@ -174,7 +174,8 @@ class BoonTubeDaemon:
                     self.notify_new_video(platform, video_data)
                     
             except Exception as e:
-                logger.error(f"Error checking {platform.name}: {e}")
+                logger.error(f"Error checking {platform.name}")
+                logger.debug(f"Error details: {e}")  # Debug level for sensitive details
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
@@ -219,7 +220,8 @@ class BoonTubeDaemon:
                 else:
                     logger.warning(f"   ✗ Failed to post to {social.name}")
             except Exception as e:
-                logger.error(f"   ✗ Error posting to {social.name}: {e}")
+                logger.error(f"   ✗ Error posting to {social.name}")
+                logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                 logger.exception("Detailed traceback:")
                 # Continue to next platform even on error
     
@@ -255,7 +257,8 @@ class BoonTubeDaemon:
                     else:
                         logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
                 except Exception as e:
-                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}: {e}")
+                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}")
+                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     logger.debug("Falling back to template-based notification")
         
         # Fall back to template-based notification
@@ -306,7 +309,8 @@ class BoonTubeDaemon:
                 self.stop()
                 break
             except Exception as e:
-                logger.error(f"Error in main loop: {e}")
+                logger.error("Error in main loop")
+                logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                 # Continue running even if there's an error
                 continue
     

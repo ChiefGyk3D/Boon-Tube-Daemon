@@ -131,7 +131,8 @@ class YouTubeVideosPlatform(MediaPlatform):
             return True
             
         except Exception as e:
-            logger.error(f"✗ YouTube authentication failed: {e}")
+            logger.error("✗ YouTube authentication failed")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -172,7 +173,8 @@ class YouTubeVideosPlatform(MediaPlatform):
             return None
             
         except Exception as e:
-            logger.error(f"Error resolving YouTube channel ID: {e}")
+            logger.error("Error resolving YouTube channel ID")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -298,7 +300,8 @@ class YouTubeVideosPlatform(MediaPlatform):
                     self.quota_exceeded_time = datetime.now()
                     logger.error(f"❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
-                logger.error(f"⚠ Error checking YouTube: {e}")
+                logger.error("⚠ Error checking YouTube")
+                logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -378,5 +381,6 @@ class YouTubeVideosPlatform(MediaPlatform):
             
             return None
         except Exception as e:
-            logger.warning(f"Error resolving YouTube channel ID for {username}: {e}")
+            logger.warning(f"Error resolving YouTube channel ID for {username}")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None

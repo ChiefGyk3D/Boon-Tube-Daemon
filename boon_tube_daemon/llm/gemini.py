@@ -78,7 +78,8 @@ class GeminiLLM:
             return True
             
         except Exception as e:
-            logger.error(f"✗ Gemini LLM initialization failed: {e}")
+            logger.error("✗ Gemini LLM initialization failed")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -142,17 +143,20 @@ class GeminiLLM:
                 
                 # Don't retry on permanent errors
                 if any(perm in error_str for perm in ['invalid', 'unauthorized', 'forbidden', 'blocked']):
-                    logger.error(f"Gemini API permanent error: {e}")
+                    logger.error("Gemini API permanent error")
+                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     return None
                 
                 # Retry on transient errors (rate limit, network, timeout, etc.)
                 if attempt < max_retries - 1:
-                    logger.warning(f"Gemini API error (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.warning(f"Gemini API error (attempt {attempt + 1}/{max_retries})")
+                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     logger.info(f"Retrying in {delay:.1f}s...")
                     time.sleep(delay)
                     delay *= 2  # Exponential backoff
                 else:
-                    logger.error(f"Gemini API failed after {max_retries} attempts: {last_error}")
+                    logger.error(f"Gemini API failed after {max_retries} attempts")
+                    logger.debug(f"Final error details: {last_error}")  # Debug level for sensitive details
         
         return None
     
@@ -251,7 +255,8 @@ Create a concise summary that captures the main topic and would make people want
             return None
             
         except Exception as e:
-            logger.error(f"Error generating summary: {e}")
+            logger.error("Error generating summary")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def generate_hashtags(self, video_data: Dict[str, Any], max_tags: int = 5) -> Optional[str]:
@@ -288,7 +293,8 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             return None
             
         except Exception as e:
-            logger.error(f"Error generating hashtags: {e}")
+            logger.error("Error generating hashtags")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def generate_notification(self, video_data: dict, platform_name: str, social_platform: str) -> Optional[str]:
@@ -498,7 +504,8 @@ Write the post now:"""
             return notification
             
         except Exception as e:
-            logger.error(f"Error generating enhanced notification for {social_platform}: {e}")
+            logger.error(f"Error generating enhanced notification for {social_platform}")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def analyze_sentiment(self, video_data: Dict[str, Any]) -> Optional[str]:
@@ -533,7 +540,8 @@ Description: {description[:300]}"""
             return sentiment
             
         except Exception as e:
-            logger.error(f"Error analyzing sentiment: {e}")
+            logger.error("Error analyzing sentiment")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def should_notify(self, video_data: Dict[str, Any]) -> bool:
@@ -588,5 +596,6 @@ Return ONLY "yes" or "no"."""
             return should_notify
             
         except Exception as e:
-            logger.error(f"Error in LLM filtering: {e}")
+            logger.error("Error in LLM filtering")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return True  # Default to notifying on error

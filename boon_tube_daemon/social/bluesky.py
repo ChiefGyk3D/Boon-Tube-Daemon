@@ -65,12 +65,29 @@ class BlueskyPlatform:
             return True
         except Exception as e:
             # Only log handle on authentication failure to help debug credential issues
-            logger.warning(f"✗ Bluesky authentication failed for handle '{handle}': {e}")
+            logger.warning(f"✗ Bluesky authentication failed for handle '{handle}'")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
         if not self.enabled or not self.client:
             return None
+        
+        # Bluesky has a 300 grapheme limit - enforce it before posting
+        BLUESKY_LIMIT = 300
+        if len(message) > BLUESKY_LIMIT:
+            logger.warning(f"Bluesky message too long ({len(message)} chars), truncating to {BLUESKY_LIMIT}")
+            # Find URL to preserve it
+            url_match = re.search(r'https?://[^\s]+', message)
+            url = url_match.group() if url_match else ''
+            url_len = len(url) + 2 if url else 0  # +2 for newlines
+            
+            # Remove URL temporarily, truncate content, re-add URL
+            content = re.sub(r'\n*https?://[^\s]+\s*$', '', message).strip()
+            max_content = BLUESKY_LIMIT - url_len - 3  # -3 for "..."
+            if len(content) > max_content:
+                content = content[:max_content].rsplit(' ', 1)[0] + '...'
+            message = f"{content}\n\n{url}" if url else content
             
         try:
             # Use TextBuilder to create rich text with explicit links and hashtags
@@ -312,5 +329,6 @@ class BlueskyPlatform:
                 return response.uri if hasattr(response, 'uri') else None
                 
         except Exception as e:
-            logger.error(f"✗ Bluesky post failed: {e}")
+            logger.error("✗ Bluesky post failed")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
