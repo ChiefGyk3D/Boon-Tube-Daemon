@@ -71,7 +71,8 @@ class YouTubeVideosPlatform(MediaPlatform):
                     logger.debug(f"📂 Loaded YouTube state from {state_file}")
                     return state
         except Exception as e:
-            logger.warning(f"⚠ Could not load YouTube state: {e}")
+            logger.warning("⚠ Could not load YouTube state")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
         return {}
     
     def _save_state(self):
@@ -87,7 +88,8 @@ class YouTubeVideosPlatform(MediaPlatform):
                 json.dump(state, f, indent=2)
             logger.debug(f"💾 Saved YouTube state to {state_file}")
         except Exception as e:
-            logger.warning(f"⚠ Could not save YouTube state: {e}")
+            logger.warning("⚠ Could not save YouTube state")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
         
     def authenticate(self) -> bool:
         """Authenticate with YouTube API."""

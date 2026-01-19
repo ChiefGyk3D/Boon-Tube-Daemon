@@ -123,7 +123,8 @@ class BoonTubeDaemon:
                     logger.warning("  ⚠ Gemini LLM initialization failed")
                     self.llm = None
             else:
-                logger.error(f"  ✗ Unknown LLM provider: {provider}")
+                logger.error("  ✗ Unknown LLM provider configured")
+                logger.debug(f"Provider value: {provider}")  # Debug level for config details
                 self.llm = None
         else:
             logger.info("  ⊘ LLM disabled")

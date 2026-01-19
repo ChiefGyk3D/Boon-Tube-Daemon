@@ -103,7 +103,8 @@ class OllamaLLM:
                     # Don't fail - Ollama will auto-pull on first use
                 
             except Exception as e:
-                logger.error(f"✗ Failed to connect to Ollama at {self.ollama_host}: {e}")
+                logger.error(f"✗ Failed to connect to Ollama at {self.ollama_host}")
+                logger.debug(f"Connection error details: {e}")  # Debug level for sensitive details
                 return False
             
             self.enabled = True
@@ -111,7 +112,8 @@ class OllamaLLM:
             return True
             
         except Exception as e:
-            logger.error(f"✗ Failed to initialize Ollama: {e}")
+            logger.error("✗ Failed to initialize Ollama")
+            logger.debug(f"Initialization error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -164,12 +166,14 @@ class OllamaLLM:
                 
                 # Retry on transient errors
                 if attempt < max_retries - 1:
-                    logger.warning(f"Ollama API error (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.warning(f"Ollama API error (attempt {attempt + 1}/{max_retries})")
+                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     logger.debug(f"Retrying in {delay}s...")
                     time.sleep(delay)
                     delay *= 2  # Exponential backoff
                 else:
-                    logger.error(f"Ollama API failed after {max_retries} attempts: {last_error}")
+                    logger.error(f"Ollama API failed after {max_retries} attempts")
+                    logger.debug(f"Final error details: {last_error}")  # Debug level for sensitive details
         
         return None
     
@@ -271,5 +275,6 @@ Write ONLY the post text (under {max_chars} chars, no URL):"""
             return notification
             
         except Exception as e:
-            logger.error(f"Error generating Ollama notification for {social_platform}: {e}")
+            logger.error(f"Error generating Ollama notification for {social_platform}")
+            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
