@@ -153,7 +153,6 @@ class MatrixPlatform:
             return None
         except Exception as e:
             logger.error("✗ Matrix login error")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
@@ -221,5 +220,4 @@ class MatrixPlatform:
             return None
         except Exception as e:
             logger.error("✗ Matrix post failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None

@@ -66,7 +66,6 @@ class BlueskyPlatform:
         except Exception as e:
             # Only log handle on authentication failure to help debug credential issues
             logger.warning(f"✗ Bluesky authentication failed for handle '{handle}'")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
@@ -330,5 +329,4 @@ class BlueskyPlatform:
                 
         except Exception as e:
             logger.error("✗ Bluesky post failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None

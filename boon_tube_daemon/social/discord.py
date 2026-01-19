@@ -227,7 +227,6 @@ class DiscordPlatform:
             return None
         except Exception as e:
             logger.error("✗ Discord post failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def update_stream(self, platform_name: str, stream_data: dict, stream_url: str) -> bool:
@@ -322,7 +321,6 @@ class DiscordPlatform:
                 
         except Exception as e:
             logger.error("✗ Discord update failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False
     
     def clear_stream(self, platform_name: str) -> None:
@@ -440,5 +438,4 @@ class DiscordPlatform:
                 
         except Exception as e:
             logger.error("✗ Discord stream ended update failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False

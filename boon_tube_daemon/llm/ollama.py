@@ -104,7 +104,6 @@ class OllamaLLM:
                 
             except Exception as e:
                 logger.error(f"✗ Failed to connect to Ollama at {self.ollama_host}")
-                logger.debug(f"Connection error details: {e}")  # Debug level for sensitive details
                 return False
             
             self.enabled = True
@@ -113,7 +112,6 @@ class OllamaLLM:
             
         except Exception as e:
             logger.error("✗ Failed to initialize Ollama")
-            logger.debug(f"Initialization error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -162,19 +160,16 @@ class OllamaLLM:
                 # Don't retry on permanent errors
                 if any(perm in error_str for perm in ['not found', 'invalid', 'unauthorized']):
                     logger.error("Ollama API permanent error")
-                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     return None
                 
                 # Retry on transient errors
                 if attempt < max_retries - 1:
                     logger.warning(f"Ollama API error (attempt {attempt + 1}/{max_retries})")
-                    logger.debug(f"Error details: {e}")  # Debug level for sensitive details
                     logger.debug(f"Retrying in {delay}s...")
                     time.sleep(delay)
                     delay *= 2  # Exponential backoff
                 else:
                     logger.error(f"Ollama API failed after {max_retries} attempts")
-                    logger.debug(f"Final error details: {last_error}")  # Debug level for sensitive details
         
         return None
     
@@ -277,5 +272,4 @@ Write ONLY the post text (under {max_chars} chars, no URL):"""
             
         except Exception as e:
             logger.error(f"Error generating Ollama notification for {social_platform}")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None

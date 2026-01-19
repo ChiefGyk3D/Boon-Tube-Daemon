@@ -72,7 +72,6 @@ class YouTubeVideosPlatform(MediaPlatform):
                     return state
         except Exception as e:
             logger.warning("⚠ Could not load YouTube state")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
         return {}
     
     def _save_state(self):
@@ -89,7 +88,6 @@ class YouTubeVideosPlatform(MediaPlatform):
             logger.debug(f"💾 Saved YouTube state to {state_file}")
         except Exception as e:
             logger.warning("⚠ Could not save YouTube state")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
         
     def authenticate(self) -> bool:
         """Authenticate with YouTube API."""
@@ -132,7 +130,6 @@ class YouTubeVideosPlatform(MediaPlatform):
             
         except Exception as e:
             logger.error("✗ YouTube authentication failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -174,7 +171,6 @@ class YouTubeVideosPlatform(MediaPlatform):
             
         except Exception as e:
             logger.error("Error resolving YouTube channel ID")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -301,7 +297,6 @@ class YouTubeVideosPlatform(MediaPlatform):
                     logger.error(f"❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
                 logger.error("⚠ Error checking YouTube")
-                logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -382,5 +377,4 @@ class YouTubeVideosPlatform(MediaPlatform):
             return None
         except Exception as e:
             logger.warning(f"Error resolving YouTube channel ID for {username}")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None

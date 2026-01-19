@@ -57,7 +57,6 @@ class TikTokPlatform(MediaPlatform):
             
         except Exception as e:
             logger.error("✗ TikTok authentication failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -188,7 +187,6 @@ class TikTokPlatform(MediaPlatform):
             return None
         except Exception as e:
             logger.error("✗ Error fetching TikTok videos")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return None
     
     def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
@@ -223,7 +221,6 @@ class TikTokPlatform(MediaPlatform):
                 loop.close()
         except Exception as e:
             logger.error("Error in get_latest_video")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
@@ -270,4 +267,3 @@ class TikTokPlatform(MediaPlatform):
                 loop.close()
         except Exception as e:
             logger.error("Error during cleanup")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details

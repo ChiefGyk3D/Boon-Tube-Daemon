@@ -63,7 +63,6 @@ class TikTokAPIPlatform(MediaPlatform):
             
         except Exception as e:
             logger.error("✗ TikTok API authentication failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             self.enabled = False
             return False
     
@@ -161,11 +160,9 @@ class TikTokAPIPlatform(MediaPlatform):
             
         except requests.exceptions.RequestException as e:
             logger.error("TikTok API request failed")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False, None
         except Exception as e:
             logger.error("Error getting TikTok video")
-            logger.debug(f"Error details: {e}")  # Debug level for sensitive details
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
