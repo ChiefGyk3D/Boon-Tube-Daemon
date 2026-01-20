@@ -19,7 +19,7 @@ atproto==0.0.63  # Bluesky AT Protocol
 python-dotenv==1.2.1
 
 # LLM Integration
-google-generativeai==0.8.5  # Google Gemini API
+google-generativeai==0.8.6  # Google Gemini API
 
 # Secret Management (optional)
 doppler-sdk==1.3.0  # Doppler SDK for Python
