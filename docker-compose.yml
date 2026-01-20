@@ -6,6 +6,8 @@ services:
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile
+    #   no_cache: true
+    #   pull: true
     container_name: boon-tube-daemon
     restart: unless-stopped
     

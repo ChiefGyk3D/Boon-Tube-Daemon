@@ -84,8 +84,8 @@ jobs:
         platforms: linux/amd64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        no-cache: true
+        pull: true
 
     - name: Test Docker image
       run: |
@@ -125,5 +125,5 @@ jobs:
         # 2. Compiling SQLite 3.50.4 from source for CVE-2025-7709 fix
         # 3. Installing all Python dependencies twice (once per arch)
         platforms: linux/amd64,linux/arm64
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        no-cache: true
+        pull: true
