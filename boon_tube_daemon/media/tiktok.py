@@ -56,7 +56,7 @@ class TikTokPlatform(MediaPlatform):
             return True
             
         except Exception as e:
-            logger.error(f"✗ TikTok authentication failed: {e}")
+            logger.error("✗ TikTok authentication failed")
             self.enabled = False
             return False
     
@@ -186,7 +186,7 @@ class TikTokPlatform(MediaPlatform):
             logger.error(f"✗ Timeout loading TikTok page for @{username}")
             return None
         except Exception as e:
-            logger.error(f"✗ Error fetching TikTok videos: {e}")
+            logger.error("✗ Error fetching TikTok videos")
             return None
     
     def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
@@ -220,7 +220,7 @@ class TikTokPlatform(MediaPlatform):
             finally:
                 loop.close()
         except Exception as e:
-            logger.error(f"Error in get_latest_video: {e}")
+            logger.error("Error in get_latest_video")
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
@@ -266,4 +266,4 @@ class TikTokPlatform(MediaPlatform):
             finally:
                 loop.close()
         except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+            logger.error("Error during cleanup")

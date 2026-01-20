@@ -76,7 +76,7 @@ class MastodonPlatform(SocialPlatform):
             logger.info("✓ Mastodon authenticated")
             return True
         except Exception as e:
-            logger.warning(f"✗ Mastodon authentication failed for {api_base_url}: {e}")
+            logger.warning(f"✗ Mastodon authentication failed for {api_base_url}")
             return False
     
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
@@ -145,5 +145,5 @@ class MastodonPlatform(SocialPlatform):
             )
             return str(status['id'])
         except Exception as e:
-            logger.error(f"✗ Mastodon post failed: {e}")
+            logger.error("✗ Mastodon post failed")
             return None

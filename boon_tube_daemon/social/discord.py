@@ -226,7 +226,7 @@ class DiscordPlatform:
                 logger.warning(f"⚠ Discord post failed with status {response.status_code}")
             return None
         except Exception as e:
-            logger.error(f"✗ Discord post failed: {e}")
+            logger.error("✗ Discord post failed")
             return None
     
     def update_stream(self, platform_name: str, stream_data: dict, stream_url: str) -> bool:
@@ -320,7 +320,7 @@ class DiscordPlatform:
                 return False
                 
         except Exception as e:
-            logger.error(f"✗ Discord update failed: {e}")
+            logger.error("✗ Discord update failed")
             return False
     
     def clear_stream(self, platform_name: str) -> None:
@@ -437,5 +437,5 @@ class DiscordPlatform:
                 return False
                 
         except Exception as e:
-            logger.error(f"✗ Discord stream ended update failed: {e}")
+            logger.error("✗ Discord stream ended update failed")
             return False

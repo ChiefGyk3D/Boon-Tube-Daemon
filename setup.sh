@@ -65,6 +65,40 @@ docker_install() {
         exit 1
     fi
     
+    # Check for existing installation and offer cleanup
+    EXISTING_CONTAINER=$(docker ps -a --filter "name=boon-tube-daemon" --format "{{.Names}}" 2>/dev/null || true)
+    EXISTING_IMAGE=$(docker images "ghcr.io/chiefgyk3d/boon-tube-daemon" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    if [[ -n "$EXISTING_CONTAINER" ]] || [[ -n "$EXISTING_IMAGE" ]]; then
+        echo ""
+        echo "⚠️  Existing Boon-Tube-Daemon installation detected:"
+        [[ -n "$EXISTING_CONTAINER" ]] && echo "   Container: $EXISTING_CONTAINER"
+        [[ -n "$EXISTING_IMAGE" ]] && echo "   Image: $EXISTING_IMAGE"
+        echo ""
+        read -p "🧹 Remove old container and image before installing? [Y/n]: " CLEANUP_OLD
+        CLEANUP_OLD=${CLEANUP_OLD:-Y}
+        
+        if [[ $CLEANUP_OLD =~ ^[Yy]$ ]]; then
+            echo "Stopping and removing old container..."
+            $COMPOSE_CMD down 2>/dev/null || docker stop boon-tube-daemon 2>/dev/null || true
+            docker rm boon-tube-daemon 2>/dev/null || true
+            echo "✓ Old container removed"
+            
+            echo "Removing old image..."
+            docker rmi ghcr.io/chiefgyk3d/boon-tube-daemon:latest 2>/dev/null || true
+            docker rmi $(docker images "ghcr.io/chiefgyk3d/boon-tube-daemon" -q) 2>/dev/null || true
+            echo "✓ Old image removed"
+            
+            # Optional: prune dangling images
+            read -p "🗑️  Also prune unused Docker images to free space? [y/N]: " PRUNE_IMAGES
+            PRUNE_IMAGES=${PRUNE_IMAGES:-N}
+            if [[ $PRUNE_IMAGES =~ ^[Yy]$ ]]; then
+                docker image prune -f
+                echo "✓ Unused images pruned"
+            fi
+        fi
+    fi
+    
     # Create .env file
     create_env_file
     
@@ -84,7 +118,7 @@ docker_install() {
     if [[ $DOCKER_SOURCE == "2" ]]; then
         echo ""
         echo "📦 Building Docker image locally..."
-        $COMPOSE_CMD build
+        $COMPOSE_CMD build --no-cache
         echo "✓ Docker image built"
     else
         echo ""
@@ -107,6 +141,23 @@ docker_install() {
         echo "  $COMPOSE_CMD logs -f"
     fi
     
+    # Ensure Docker starts on boot
+    echo ""
+    if ! systemctl is-enabled docker &>/dev/null; then
+        read -p "🔄 Enable Docker to start on boot? [Y/n]: " ENABLE_DOCKER
+        ENABLE_DOCKER=${ENABLE_DOCKER:-Y}
+        
+        if [[ $ENABLE_DOCKER =~ ^[Yy]$ ]]; then
+            echo "Enabling Docker service..."
+            sudo systemctl enable docker
+            echo "✓ Docker will start on boot"
+            echo "✓ Container will auto-restart with Docker (restart: unless-stopped)"
+        fi
+    else
+        echo "✓ Docker is already enabled to start on boot"
+        echo "✓ Container will auto-restart with Docker (restart: unless-stopped)"
+    fi
+    
     # Summary
     echo ""
     echo "=================================="
@@ -120,6 +171,7 @@ docker_install() {
     echo "  $COMPOSE_CMD pull         # Update to latest image"
     echo "  $COMPOSE_CMD up -d --build # Rebuild and restart"
     echo ""
+    echo "The container will automatically restart on boot."
     echo "Don't forget to edit .env with your API keys!"
     echo ""
 }

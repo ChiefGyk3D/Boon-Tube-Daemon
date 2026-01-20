@@ -24,6 +24,7 @@ from boon_tube_daemon.social.matrix import MatrixPlatform
 from boon_tube_daemon.social.bluesky import BlueskyPlatform
 from boon_tube_daemon.social.mastodon import MastodonPlatform
 from boon_tube_daemon.llm.gemini import GeminiLLM
+from boon_tube_daemon.llm.ollama import OllamaLLM
 
 # TikTok support is optional (requires Playwright)
 try:
@@ -104,11 +105,25 @@ class BoonTubeDaemon:
         # Initialize LLM (optional)
         logger.info("\n🤖 Initializing LLM...")
         if get_bool_config('LLM', 'enable', default=False):
-            self.llm = GeminiLLM()
-            if self.llm.authenticate():
-                logger.info("✓ Gemini LLM enabled")
+            # Determine provider
+            provider = get_config('LLM', 'provider', default='gemini').lower()
+            
+            if provider == 'ollama':
+                self.llm = OllamaLLM()
+                if self.llm.authenticate():
+                    logger.info("✓ Ollama LLM enabled")
+                else:
+                    logger.warning("  ⚠ Ollama LLM initialization failed")
+                    self.llm = None
+            elif provider == 'gemini':
+                self.llm = GeminiLLM()
+                if self.llm.authenticate():
+                    logger.info("✓ Gemini LLM enabled")
+                else:
+                    logger.warning("  ⚠ Gemini LLM initialization failed")
+                    self.llm = None
             else:
-                logger.warning("  ⚠ Gemini LLM initialization failed")
+                logger.error("  ✗ Unknown LLM provider configured")
                 self.llm = None
         else:
             logger.info("  ⊘ LLM disabled")
@@ -158,7 +173,7 @@ class BoonTubeDaemon:
                     self.notify_new_video(platform, video_data)
                     
             except Exception as e:
-                logger.error(f"Error checking {platform.name}: {e}")
+                logger.error(f"Error checking {platform.name}")
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
@@ -203,7 +218,7 @@ class BoonTubeDaemon:
                 else:
                     logger.warning(f"   ✗ Failed to post to {social.name}")
             except Exception as e:
-                logger.error(f"   ✗ Error posting to {social.name}: {e}")
+                logger.error(f"   ✗ Error posting to {social.name}")
                 logger.exception("Detailed traceback:")
                 # Continue to next platform even on error
     
@@ -227,7 +242,8 @@ class BoonTubeDaemon:
         if self.llm and self.llm.enabled and get_bool_config('LLM', 'enhance_notifications', default=False):
             if social_platform_name:
                 try:
-                    enhanced_message = self.llm.enhance_notification(
+                    # Use unified generate_notification interface (works for both Ollama and Gemini)
+                    enhanced_message = self.llm.generate_notification(
                         video_data, 
                         platform.name,
                         social_platform_name
@@ -238,7 +254,7 @@ class BoonTubeDaemon:
                     else:
                         logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
                 except Exception as e:
-                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}: {e}")
+                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}")
                     logger.debug("Falling back to template-based notification")
         
         # Fall back to template-based notification
@@ -289,7 +305,7 @@ class BoonTubeDaemon:
                 self.stop()
                 break
             except Exception as e:
-                logger.error(f"Error in main loop: {e}")
+                logger.error("Error in main loop")
                 # Continue running even if there's an error
                 continue
     

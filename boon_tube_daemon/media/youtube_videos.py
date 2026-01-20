@@ -9,8 +9,10 @@ This module monitors YouTube channels for new video uploads (not live streams).
 Uses the YouTube Data API v3 with efficient quota management.
 """
 
+import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional, Tuple
 
 from googleapiclient.discovery import build
@@ -20,9 +22,16 @@ from boon_tube_daemon.media.base import MediaPlatform
 
 logger = logging.getLogger(__name__)
 
+# Default state file location (can be overridden by config)
+DEFAULT_STATE_DIR = Path("/app/config")
+STATE_FILENAME = "youtube_state.json"
+
 
 class YouTubeVideosPlatform(MediaPlatform):
     """YouTube platform for monitoring new video uploads."""
+    
+    # Time window for "recent" videos that should be posted even on re-initialization
+    RECENT_VIDEO_WINDOW = timedelta(hours=2)
     
     def __init__(self):
         super().__init__("YouTube-Videos")
@@ -34,6 +43,51 @@ class YouTubeVideosPlatform(MediaPlatform):
         self.consecutive_errors = 0
         self.max_consecutive_errors = 5
         self.last_video_id = None
+        self._state_file_path = None
+        
+    def _get_state_file_path(self) -> Path:
+        """Get the path to the state file, creating directory if needed."""
+        if self._state_file_path:
+            return self._state_file_path
+            
+        # Try config directory first (for Docker), fall back to local
+        state_dir = get_config('Settings', 'state_dir', default=str(DEFAULT_STATE_DIR))
+        state_path = Path(state_dir)
+        
+        # Fall back to current directory if config dir doesn't exist
+        if not state_path.exists():
+            state_path = Path(".")
+            
+        self._state_file_path = state_path / STATE_FILENAME
+        return self._state_file_path
+    
+    def _load_state(self) -> dict:
+        """Load persisted state from disk."""
+        try:
+            state_file = self._get_state_file_path()
+            if state_file.exists():
+                with open(state_file, 'r') as f:
+                    state = json.load(f)
+                    logger.debug(f"📂 Loaded YouTube state from {state_file}")
+                    return state
+        except Exception as e:
+            logger.warning("⚠ Could not load YouTube state")
+        return {}
+    
+    def _save_state(self):
+        """Persist current state to disk."""
+        try:
+            state_file = self._get_state_file_path()
+            state = {
+                'last_video_id': self.last_video_id,
+                'channel_id': self.channel_id,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            with open(state_file, 'w') as f:
+                json.dump(state, f, indent=2)
+            logger.debug(f"💾 Saved YouTube state to {state_file}")
+        except Exception as e:
+            logger.warning("⚠ Could not save YouTube state")
         
     def authenticate(self) -> bool:
         """Authenticate with YouTube API."""
@@ -59,13 +113,23 @@ class YouTubeVideosPlatform(MediaPlatform):
                     logger.warning(f"✗ Could not find YouTube channel for username: {self.username}")
                     return False
             
+            # Load persisted state (last_video_id)
+            state = self._load_state()
+            if state.get('last_video_id'):
+                # Verify the state is for the same channel
+                if state.get('channel_id') == self.channel_id:
+                    self.last_video_id = state['last_video_id']
+                    logger.info(f"📂 Restored last video ID: {self.last_video_id}")
+                else:
+                    logger.info("📂 State file is for different channel, starting fresh")
+            
             self.enabled = True
             self.consecutive_errors = 0
             logger.info(f"✓ YouTube Videos authenticated for channel: {self.channel_id}")
             return True
             
         except Exception as e:
-            logger.error(f"✗ YouTube authentication failed: {e}")
+            logger.error("✗ YouTube authentication failed")
             self.enabled = False
             return False
     
@@ -106,7 +170,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             return None
             
         except Exception as e:
-            logger.error(f"Error resolving YouTube channel ID: {e}")
+            logger.error("Error resolving YouTube channel ID")
             return None
     
     def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -232,7 +296,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                     self.quota_exceeded_time = datetime.now()
                     logger.error(f"❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
-                logger.error(f"⚠ Error checking YouTube: {e}")
+                logger.error("⚠ Error checking YouTube")
             return False, None
     
     def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
@@ -251,18 +315,38 @@ class YouTubeVideosPlatform(MediaPlatform):
             return False, None
         
         current_video_id = video_data.get('video_id')
+        published_at = video_data.get('published_at')
         
         # Check if this is a new video
         if self.last_video_id is None:
-            # First run - don't notify, just track
-            logger.info(f"📹 YouTube: Initialized tracking for channel")
+            # First run or state was lost - check if video is recent enough to post
+            is_recent = False
+            if published_at:
+                # Make sure we're comparing timezone-aware datetimes
+                now = datetime.now(timezone.utc)
+                if published_at.tzinfo is None:
+                    published_at = published_at.replace(tzinfo=timezone.utc)
+                time_since_published = now - published_at
+                is_recent = time_since_published < self.RECENT_VIDEO_WINDOW
+                
+                if is_recent:
+                    logger.info(f"📹 YouTube: First check - found recent video (published {time_since_published.total_seconds() / 60:.0f} min ago)")
+                    logger.info(f"🎬 YouTube: Posting recent video: {video_data.get('title')[:50]}...")
+                    self.last_video_id = current_video_id
+                    self._save_state()
+                    return True, video_data
+            
+            # Not recent enough, just initialize tracking
+            logger.info(f"📹 YouTube: Initialized tracking for channel (video published {time_since_published.total_seconds() / 3600:.1f}h ago)" if published_at else "📹 YouTube: Initialized tracking for channel")
             self.last_video_id = current_video_id
+            self._save_state()
             return False, None
         
         if current_video_id != self.last_video_id:
             # New video detected!
             logger.info(f"🎬 YouTube: New video: {video_data.get('title')[:50]}...")
             self.last_video_id = current_video_id
+            self._save_state()
             return True, video_data
         
         # Same video as before
@@ -292,5 +376,5 @@ class YouTubeVideosPlatform(MediaPlatform):
             
             return None
         except Exception as e:
-            logger.warning(f"Error resolving YouTube channel ID for {username}: {e}")
+            logger.warning(f"Error resolving YouTube channel ID for {username}")
             return None
