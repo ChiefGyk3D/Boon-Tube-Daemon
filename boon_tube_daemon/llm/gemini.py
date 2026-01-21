@@ -12,13 +12,23 @@ notifications using Google's Gemini AI model.
 import logging
 import re
 import time
+import threading
 from typing import Optional, Dict, Any
 import google.generativeai as genai
 
 from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config, get_int_config
 from boon_tube_daemon.utils.rate_limiter import RateLimiter
-
+from boon_tube_daemon.llm.validator import LLMValidatorfrom boon_tube_daemon.llm.prompts import build_video_notification_prompt
 logger = logging.getLogger(__name__)
+
+# Global rate limiting: max 4 concurrent requests, 2-second minimum delay between calls
+# Because apparently we need a traffic cop for our AI API calls
+# Without this, 10 videos going live at once = instant quota exceeded
+# It's like rush hour for robots. Beep beep, motherfuckers.
+_api_semaphore = threading.Semaphore(4)
+_last_api_call_time = 0
+_api_call_lock = threading.Lock()
+_min_delay_between_calls = 2.0  # seconds (30 requests/min = one every 2 seconds)
 
 
 class GeminiLLM:
@@ -39,6 +49,28 @@ class GeminiLLM:
         self.model = None
         self.api_key = None
         self.rate_limiter = None
+        
+        # Retry configuration for handling transient API errors (503, 429, etc.)
+        # Because even Google's servers have bad days
+        self.max_retries = int(get_config('LLM', 'max_retries', default='3'))
+        self.retry_delay_base = int(get_config('LLM', 'retry_delay_base', default='2'))
+        
+        # Generation parameters for better control with small LLMs
+        # Temperature: Because even AI needs a chill pill to stop hallucinating
+        # We set it low so the model doesn't get "creative" and start making shit up
+        # about giveaways and premieres that don't exist
+        self.temperature = float(get_config('LLM', 'temperature', default='0.3'))
+        self.top_p = float(get_config('LLM', 'top_p', default='0.9'))
+        self.max_tokens = int(get_config('LLM', 'max_tokens', default='150'))
+        
+        # Character limits for different platforms
+        # Because each social media site is a special snowflake
+        self.bluesky_max_chars = 300
+        self.mastodon_max_chars = 500
+        
+        # Initialize guardrails validator
+        # Because even billion-parameter neural networks need a fucking babysitter
+        self.validator = LLMValidator()
         
     def authenticate(self) -> bool:
         """
@@ -82,37 +114,63 @@ class GeminiLLM:
             self.enabled = False
             return False
     
-    def _generate_with_retry(self, prompt: str, max_retries: int = 3, initial_delay: float = 2.0) -> Optional[str]:
+    def _generate_with_retry(self, prompt: str, max_retries: int = None) -> Optional[str]:
         """
-        Generate content with exponential backoff retry logic and rate limiting.
+        Generate content with exponential backoff retry logic and GLOBAL rate limiting.
+        
+        Handles transient errors like:
+        - 503 Service Unavailable (model overloaded)
+        - 429 Rate Limit Exceeded
+        - Network timeouts
+        
+        Uses a global semaphore to limit concurrent API calls (max 4) and enforces
+        minimum 2-second delay between requests to prevent quota exhaustion when
+        multiple videos drop simultaneously.
+        
+        Because apparently we need a traffic cop for our API calls. It's like rush hour
+        for robots. Without this, 10 videos at once = instant quota exceeded.
+        Welcome to the distributed systems clusterfuck.
         
         Args:
             prompt: The prompt to send to Gemini
-            max_retries: Maximum number of retry attempts (default: 3)
-            initial_delay: Initial delay in seconds between retries (default: 2.0)
-            
-        Returns:
-            Generated text or None on failure
-        """
-        last_error = None
-        delay = initial_delay
+            max_retries: Maximum retry attempts (defaults to self.max_retries)
         
-        for attempt in range(max_retries):
+        Returns:
+            Generated text or None if all retries fail
+        """
+        global _last_api_call_time
+        
+        if max_retries is None:
+            max_retries = self.max_retries
+        
+        last_error = None
+        
+        for attempt in range(max_retries + 1):  # +1 for initial attempt
             try:
-                # Acquire rate limit token before making API call
-                if self.rate_limiter:
-                    wait_time = self.rate_limiter.get_wait_time()
-                    if wait_time > 0:
-                        logger.debug(f"⏱ Rate limit: waiting {wait_time:.1f}s before API call...")
+                # Rate limiting: wait for semaphore slot (max 4 concurrent)
+                # This prevents us from DOSing ourselves. Self-inflicted wounds, the best kind.
+                with _api_semaphore:
+                    # Enforce minimum delay between API calls
+                    # Like a speed limit, but for robots talking to other robots
+                    with _api_call_lock:
+                        time_since_last_call = time.time() - _last_api_call_time
+                        if time_since_last_call < _min_delay_between_calls:
+                            sleep_time = _min_delay_between_calls - time_since_last_call
+                            logger.debug(f"⏱ Rate limiting: waiting {sleep_time:.2f}s before API call...")
+                            time.sleep(sleep_time)
+                        _last_api_call_time = time.time()
                     
-                    # Acquire token (will block if rate limit reached)
-                    if not self.rate_limiter.acquire(timeout=30.0):
-                        logger.error("Rate limit token acquisition timeout after 30s")
-                        return None
-                
-                # Make API call
-                response = self.model.generate_content(prompt)
-                result = response.text.strip()
+                    # Make API call with generation config for better control
+                    # Teaching the AI to behave with temperature and top_p
+                    response = self.model.generate_content(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=self.temperature,
+                            top_p=self.top_p,
+                            max_output_tokens=self.max_tokens,
+                        )
+                    )
+                    result = response.text.strip()
                 
                 # Fix escaped newlines and other escape sequences
                 # Sometimes LLM returns strings with literal \n instead of actual newlines
@@ -140,20 +198,36 @@ class GeminiLLM:
                 last_error = e
                 error_str = str(e).lower()
                 
-                # Don't retry on permanent errors
-                if any(perm in error_str for perm in ['invalid', 'unauthorized', 'forbidden', 'blocked']):
-                    logger.error("Gemini API permanent error")
+                # Check if it's a retryable error
+                # Some errors mean "try again", others mean "fuck off, you're blocked"
+                is_retryable = (
+                    '503' in error_str or  # Service Unavailable
+                    '429' in error_str or  # Rate Limit
+                    '500' in error_str or  # Internal Server Error
+                    'overloaded' in error_str or
+                    'quota' in error_str or
+                    'timeout' in error_str or
+                    'connection' in error_str
+                )
+                
+                if not is_retryable or attempt >= max_retries:
+                    # Non-retryable error or final attempt - give up
+                    # The AI has spoken: "No."
+                    logger.error(f"✗ Failed to generate content: {e}")
                     return None
                 
-                # Retry on transient errors (rate limit, network, timeout, etc.)
-                if attempt < max_retries - 1:
-                    logger.warning(f"Gemini API error (attempt {attempt + 1}/{max_retries})")
-                    logger.info(f"Retrying in {delay:.1f}s...")
-                    time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-                else:
-                    logger.error(f"Gemini API failed after {max_retries} attempts")
+                # Calculate exponential backoff delay
+                # Wait a bit, then wait longer, then wait even longer
+                # Like a teenager snoozing their alarm
+                delay = self.retry_delay_base ** attempt
+                logger.warning(
+                    f"⚠ API error (attempt {attempt + 1}/{max_retries + 1}): {error_str}. "
+                    f"Retrying in {delay}s..."
+                )
+                time.sleep(delay)
         
+        # Should not reach here, but just in case
+        logger.error(f"✗ Failed after {max_retries + 1} attempts: {last_error}")
         return None
     
     def clean_description(self, description: str, max_length: int = 500) -> str:
@@ -234,7 +308,7 @@ class GeminiLLM:
             prompt = f"""Analyze this video and create a brief, engaging summary in {max_length} characters or less:
 
 Title: {title}
-Description: {description[:500]}
+Description: {LLMValidator.safe_trim(description, 500)}
 
 Create a concise summary that captures the main topic and would make people want to watch. Be enthusiastic but professional."""
 
@@ -242,8 +316,9 @@ Create a concise summary that captures the main topic and would make people want
             
             if summary:
                 # Ensure length limit
+                # Use safe_trim to not cut hashtags mid-word like a savage
                 if len(summary) > max_length:
-                    summary = summary[:max_length-3] + "..."
+                    summary = LLMValidator.safe_trim(summary, max_length)
                 
                 logger.debug(f"Generated summary: {summary[:50]}...")
                 return summary
@@ -275,7 +350,7 @@ Create a concise summary that captures the main topic and would make people want
             prompt = f"""Generate {max_tags} relevant, popular hashtags for this video. Return ONLY the hashtags separated by spaces, with # prefix.
 
 Title: {title}
-Description: {description[:300]}
+Description: {LLMValidator.safe_trim(description, 300)}
 
 Example format: #Tech #Gaming #Tutorial #AI #Programming"""
 
@@ -329,133 +404,103 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             
             # Clean description to remove sponsor links, URLs, etc.
             cleaned_desc = self.clean_description(description, max_length=400)
+            # Trim description to safe length for prompts
+            trimmed_desc = LLMValidator.safe_trim(cleaned_desc, 300)
             
-            # Get platform-specific posting style from config
+            # Platform-specific configuration
             social_platform_lower = social_platform.lower()
             
-            # Default styles per platform
-            default_styles = {
-                'discord': 'conversational',
-                'matrix': 'professional',
-                'bluesky': 'conversational',
-                'mastodon': 'detailed'
-            }
-            
-            post_style = get_config(
-                social_platform.title(),
-                'post_style',
-                default=default_styles.get(social_platform_lower, 'conversational')
-            ).lower()
-            
-            # Style-specific instructions
-            style_instructions = {
-                'professional': "Use a formal, clear, business-like tone. Be informative and direct.",
-                'conversational': "Use a casual, friendly, community-focused tone. Be warm and approachable.",
-                'detailed': "Provide comprehensive context and explanation. Be thorough and informative.",
-                'concise': "Be brief and to-the-point. Use minimal text while staying engaging."
-            }
-            
-            style_instruction = style_instructions.get(post_style, style_instructions['conversational'])
-            
-            # Platform-specific prompts
+            # Determine character limits and hashtag usage
             if social_platform_lower == 'discord':
-                prompt = f"""Create an engaging Discord announcement for this new {platform_name} video.
-
-Title: {title}
-Description: {cleaned_desc}
-
-Style: {post_style}
-{style_instruction}
-
-Discord-specific guidelines:
-- NO hashtags (Discord doesn't use them)
-- NO platform greetings like "Hey Discord!" or "Hello everyone!" - just get to the content
-- NO placeholder URLs like "[YouTube Link]" or "youtu.be/your_youtube_link_here" - the actual URL will be added automatically
-- End with an invitation to watch/discuss
-- Keep it under 300 characters (URL will be added separately)
-
-Write the announcement now WITHOUT including any URLs:"""
-
+                max_chars = 300
+                use_hashtags = False
             elif social_platform_lower == 'matrix':
-                prompt = f"""Create a Matrix/Element announcement for this new {platform_name} video.
-
-Title: {title}
-Description: {cleaned_desc}
-
-Style: {post_style}
-{style_instruction}
-
-Matrix-specific guidelines:
-- NO hashtags (Matrix doesn't use them)
-- NO platform greetings like "Hey Matrix!" - just get to the content
-- NO placeholder URLs like "[VIDEO_ID]" or "youtube.com/watch?v=[VIDEO_ID]" - the actual URL will be added automatically
-- Focus on the content value
-- Keep it under 350 characters (URL will be added separately)
-
-Write the announcement now WITHOUT including any URLs:"""
-
+                max_chars = 350
+                use_hashtags = False
             elif social_platform_lower == 'bluesky':
-                # Bluesky has 300 GRAPHEME limit (not bytes). YouTube URLs are ~43 chars.
-                # 300 total - 43 URL - 2 newlines - 5 buffer = 250 chars for content
-                # Being conservative because emojis count as multiple graphemes
-                bluesky_content_limit = 250
-                prompt = f"""Create a SHORT Bluesky post for this new {platform_name} video.
-
-Title: {title}
-
-Style: {post_style}
-{style_instruction}
-
-BLUESKY RULES (MUST FOLLOW):
-- ABSOLUTE MAXIMUM: {bluesky_content_limit} characters total (this is NON-NEGOTIABLE)
-- The URL will be added automatically - DO NOT include any URLs
-- Include 2-3 SHORT hashtags at the end (counts toward limit)
-- NO greetings, NO meta text, NO placeholder URLs
-- Emojis count as 2+ characters each - use sparingly
-- Aim for 200-230 characters to be safe
-
-Write ONLY the post text (under {bluesky_content_limit} chars, no URLs):"""
-
+                # Bluesky: 300 total - 43 URL - 5 buffer = 250 for content
+                max_chars = 250
+                use_hashtags = True
             elif social_platform_lower == 'mastodon':
-                # Mastodon has 500 char limit. YouTube URLs are ~43 chars, so leave room
-                # 500 total - 43 URL - 2 newlines = 455 chars for content
-                prompt = f"""Create an engaging Mastodon toot for this new {platform_name} video.
-
-Title: {title}
-Description: {cleaned_desc}
-
-Style: {post_style}
-{style_instruction}
-
-Mastodon-specific guidelines:
-- CRITICAL: Stay under 455 characters (URL will be added separately, Mastodon limit is 500 total)
-- Count EVERY character including spaces, hashtags, punctuation
-- NO platform greetings like "Hey Mastodon!" - wastes characters
-- NO placeholder URLs like "YOUR_VIDEO_ID" - the actual URL will be added automatically
-- Include 3-5 SHORT hashtags at the end (#Linux not #LinuxForBeginners)
-- Keep main text to ~380 chars to leave room for hashtags
-- If style is 'detailed', be comprehensive but STAY UNDER 455 chars
-
-Write the toot now WITHOUT including any URLs (MUST be under 455 chars):"""
-
+                # Mastodon: 500 total - 43 URL - 5 buffer = 450 for content
+                max_chars = 450
+                use_hashtags = True
             else:
-                # Fallback for unknown platforms
-                prompt = f"""Create an engaging social media post for this new {platform_name} video.
-
-Title: {title}
-Description: {cleaned_desc}
-
-Style: {post_style}
-{style_instruction}
-
-Keep it under 280 characters, include the URL, and make it clickable.
-
-Write the post now:"""
-
+                max_chars = 300
+                use_hashtags = False
+            
+            # Build sophisticated prompt using template system
+            # This is peak humanity: writing instruction manuals for robots
+            prompt = build_video_notification_prompt(
+                platform_name=platform_name,
+                creator_name=platform_name,  # Using platform as creator context
+                title=title,
+                description=trimmed_desc,
+                social_platform=social_platform_lower,
+                max_chars=max_chars,
+                use_hashtags=use_hashtags,
+                strict_mode=False
+            )
+            
             notification = self._generate_with_retry(prompt)
             if not notification:
                 logger.warning(f"Failed to generate enhanced notification for {social_platform}, using fallback")
                 return None
+            
+            # GUARDRAILS: Quality validation and retry logic
+            # Because teaching a robot to count to three is apparently harder than building the robot
+            max_validation_retries = 2
+            expected_hashtag_count = 3 if use_hashtags else 0
+            
+            for retry in range(max_validation_retries):
+                # Run the gauntlet of guardrails
+                is_valid, issues = self.validator.validate_full_message(
+                    notification,
+                    expected_hashtag_count=expected_hashtag_count,
+                    title=title,
+                    username=platform_name,
+                    platform=social_platform_lower
+                )
+                
+                if is_valid:
+                    # Victory! The AI followed instructions (for once)
+                    if retry > 0:
+                        logger.info(f"✅ Retry #{retry} produced valid message after quality checks")
+                    else:
+                        logger.debug(f"✓ Message passed all guardrail checks on first try")
+                    break
+                else:
+                    # AI fucked up. Shocking, I know.
+                    logger.warning(f"⚠ Generated message has quality issues (attempt {retry + 1}/{max_validation_retries}): {', '.join(issues)}")
+                    
+                    if retry < max_validation_retries - 1:
+                        # Try again with strict_mode enabled
+                        # This adds extra "⚠️ CRITICAL" warnings to scare the AI into compliance
+                        logger.info(f"🔄 Retrying with strict mode enabled...")
+                        strict_prompt = build_video_notification_prompt(
+                            platform_name=platform_name,
+                            creator_name=platform_name,
+                            title=title,
+                            description=trimmed_desc,
+                            social_platform=social_platform_lower,
+                            max_chars=max_chars,
+                            use_hashtags=use_hashtags,
+                            strict_mode=True  # Enable strict mode for retry
+                        )
+                        notification = self._generate_with_retry(strict_prompt)
+                        if not notification:
+                            logger.warning(f"Retry failed to generate, using original despite issues")
+                            break
+                    else:
+                        # All retries exhausted, use what we got
+                        logger.warning(f"⚠ Validation retries exhausted, using message with issues")
+            
+            # Remove username-derived hashtags (post-generation cleanup)
+            # Because the AI loves to use people's names as hashtags like a fucking amateur
+            notification = self.validator.validate_hashtags_against_username(notification, platform_name)
+            
+            # Add to deduplication cache for future checks
+            self.validator.add_to_message_cache(notification)
             
             # Clean up common LLM meta-text patterns
             meta_patterns = [
@@ -521,7 +566,7 @@ Write the post now:"""
             prompt = f"""Analyze the tone/sentiment of this video content. Return ONE WORD only from: positive, negative, neutral, educational, entertainment, news, tutorial, review, comedy, dramatic.
 
 Title: {title}
-Description: {description[:300]}"""
+Description: {LLMValidator.safe_trim(description, 300)}"""
 
             sentiment = self._generate_with_retry(prompt)
             if not sentiment:
@@ -564,7 +609,7 @@ Description: {description[:300]}"""
             prompt = f"""Determine if this video should trigger a notification based on quality and relevance.
 
 Title: {title}
-Description: {description[:300]}
+Description: {LLMValidator.safe_trim(description, 300)}
 
 Filter out:
 - Spam or clickbait
