@@ -16,6 +16,9 @@ python-dateutil==2.9.0.post0
 
 # YouTube API
 google-api-python-client==2.188.0
+google-auth==2.47.0
+google-auth-oauthlib==1.2.4
+google-auth-httplib2==0.3.0
 
 # TikTok monitoring via Playwright (no TikTokApi package needed) 
 playwright==1.57.0
