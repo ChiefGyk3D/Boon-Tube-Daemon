@@ -28,7 +28,8 @@ def build_video_notification_prompt(
     social_platform: str,
     max_chars: int,
     use_hashtags: bool = True,
-    strict_mode: bool = False
+    strict_mode: bool = False,
+    post_style: str = 'conversational'
 ) -> str:
     """
     Build sophisticated prompt for VIDEO upload notifications with step-by-step instructions.
@@ -45,6 +46,7 @@ def build_video_notification_prompt(
         max_chars: Maximum character count
         use_hashtags: Whether to include hashtags
         strict_mode: If True, adds extra emphasis (used for retries)
+        post_style: Tone style (professional, conversational, detailed, concise)
     
     Returns:
         Formatted prompt string
@@ -57,15 +59,37 @@ def build_video_notification_prompt(
 
 """
     
-    hashtag_count = 3 if use_hashtags and social_platform in ['bluesky', 'mastodon'] else 0
-    hashtag_instruction = ""
+    # Style-specific instructions
+    style_instructions = {
+        'professional': "Use a formal, clear, business-like tone. Be informative and direct.",
+        'conversational': "Use a casual, friendly tone. Sound like a real person sharing something cool.",
+        'detailed': "Provide comprehensive context. Explain what viewers will learn or see in detail.",
+        'concise': "Be brief and punchy. Minimal words, maximum impact."
+    }
     
-    if hashtag_count > 0:
+    style_instruction = style_instructions.get(post_style, style_instructions['conversational'])
+    
+    # Mastodon gets more flexible hashtag count (3-5), others get exactly 3
+    if social_platform == 'mastodon' and use_hashtags:
+        hashtag_count = '3-5'
+        hashtag_instruction = f"""
+STEP 2 - HASHTAG RULES:
+Include 3-5 SHORT, relevant hashtags at the end.
+
+Hashtag guidelines:
+- Use 3-5 hashtags (not 2, not 6, somewhere in that range)
+- Extract from words in the video title: "{title}"
+- NEVER use the creator name "{creator_name}" or any part of it as a hashtag
+- NEVER use generic tags (#Video, #NewVideo, #Content) unless in the title
+- Keep hashtags SHORT: #Linux not #LinuxForBeginners
+- Format: space before each hashtag"""
+    elif use_hashtags:
+        hashtag_count = 3
         hashtag_instruction = f"""
 STEP 2 - HASHTAG RULES (CRITICAL):
-You MUST include EXACTLY {hashtag_count} hashtags at the end.
+You MUST include EXACTLY 3 hashtags at the end.
 
-Count: 1, 2, 3 hashtags. Not 2. Not 4. Exactly {hashtag_count}.
+Count: 1, 2, 3 hashtags. Not 2. Not 4. Exactly 3.
 (Yes, we have to teach a computer how to count. Welcome to the future.)
 
 Hashtag source rules:
@@ -74,6 +98,9 @@ Hashtag source rules:
 - NEVER use generic tags (#Gaming, #Live, #Video) unless in the title
 - Format: space before each hashtag
 - SHORT hashtags only: #Tech not #TechnologyReview"""
+    else:
+        hashtag_count = 0
+        hashtag_instruction = ""
     
     examples = ""
     if social_platform == 'bluesky':
@@ -101,17 +128,23 @@ EXAMPLES:
 
 Example 1:
 Title: "Linux Server Setup for Beginners"
-Good post: "New video: Setting up your first Linux server! Step-by-step guide for beginners #Linux #Server #Tutorial"
-({hashtag_count} hashtags)
+Good post: "New video: Setting up your first Linux server! Step-by-step guide for beginners #Linux #Server #Tutorial #SysAdmin"
+(4 hashtags - flexible range)
 
 Example 2:
 Title: "Photography Tips - Golden Hour Shooting"
 Good post: "Just uploaded tips for shooting during golden hour! Check it out 📸 #Photography #Tips #GoldenHour"
-({hashtag_count} hashtags)
+(3 hashtags - minimum is fine)
+
+Example 3:
+Title: "Python Data Science Tutorial"
+Good post: "Complete guide to data analysis with Python! Covers pandas, numpy, visualization #Python #DataScience #Tutorial #Programming #Analytics"
+(5 hashtags - maximum allowed)
 
 Bad examples to AVOID:
 ✗ "MUST WATCH! Amazing tutorial!" (clickbait, no real content)
-✗ "New video is live! #YouTube #NewVideo #Content" (generic tags)"""
+✗ "New video is live! #YouTube #NewVideo #Content" (generic tags)
+✗ Using only 2 hashtags or using 6+ hashtags"""
     
     elif social_platform == 'discord':
         examples = """
@@ -152,17 +185,21 @@ TASK: Write a SHORT, engaging post announcing this NEW VIDEO.
 VIDEO TITLE: "{title}"
 VIDEO DESCRIPTION: {description}
 
+STYLE: {post_style.title()}
+{style_instruction}
+
 STEP 1 - CONTENT RULES (FOLLOW EXACTLY):
 ✓ Length: MUST be {max_chars} characters or less (this is NON-NEGOTIABLE)
 ✓ Output: ONLY the post text (no quotes, no labels, no "Here's...")
-✓ Tone: Enthusiastic but natural (not over-the-top)
-✓ Content: Highlight what the video covers, what viewers will learn/see
+✓ Tone: Match the {post_style} style described above
+✓ Content: Highlight what the video covers - what viewers will learn or see
+✓ Context: Use BOTH the title AND description to understand the video content
 ✓ Emoji: Use 0-1 emoji maximum (optional, relevant to content)
 ✗ DO NOT include the URL (it's added automatically)
 ✗ DO NOT invent details not in title/description (no "limited time", "special offer", "exclusive", fake timestamps)
 ✗ DO NOT use cringe words: "INSANE", "EPIC", "CRAZY", "UNMISSABLE", "smash that like button"
 ✗ DO NOT use greetings like "Hey everyone!" or "What's up {social_platform}!" - announce the video directly{hashtag_instruction}{examples}
 
-NOW: Write the announcement for "{title}". Remember: {"exactly " + str(hashtag_count) + " hashtags, " if hashtag_count > 0 else ""}under {max_chars} characters, NO URLs.
+NOW: Write the announcement for "{title}". Remember: {"exactly 3 hashtags, " if hashtag_count == 3 else f"{hashtag_count} hashtags, " if use_hashtags else ""}under {max_chars} characters, NO URLs, {post_style} style.
 
 Post:"""

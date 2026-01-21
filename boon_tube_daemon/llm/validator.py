@@ -218,8 +218,16 @@ class LLMValidator:
         
         # Check hashtag count
         # Yes, we're teaching a computer to count. To THREE.
+        # Or to "somewhere between 3 and 5" for Mastodon because flexibility is nice.
         hashtags = LLMValidator.extract_hashtags(message)
-        if len(hashtags) != expected_hashtag_count:
+        
+        # Support range format like "3-5" or exact count like 3
+        if isinstance(expected_hashtag_count, str) and '-' in expected_hashtag_count:
+            # It's a range (e.g., "3-5")
+            min_count, max_count = map(int, expected_hashtag_count.split('-'))
+            if not (min_count <= len(hashtags) <= max_count):
+                issues.append(f"Wrong hashtag count: {len(hashtags)} (expected {expected_hashtag_count})")
+        elif expected_hashtag_count > 0 and len(hashtags) != expected_hashtag_count:
             issues.append(f"Wrong hashtag count: {len(hashtags)} (expected {expected_hashtag_count})")
         
         # Check for forbidden words
@@ -667,7 +675,7 @@ class LLMValidator:
     def validate_full_message(
         self,
         message: str,
-        expected_hashtag_count: int,
+        expected_hashtag_count,  # Can be int or str (e.g., 3 or "3-5")
         title: str,
         username: str,
         platform: str = ''

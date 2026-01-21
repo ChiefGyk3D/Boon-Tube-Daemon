@@ -261,6 +261,20 @@ class OllamaLLM:
             # Platform-specific character limits
             social_platform_lower = social_platform.lower()
             
+            # Get platform-specific posting style from config (with sensible defaults)
+            default_styles = {
+                'discord': 'conversational',
+                'matrix': 'professional',
+                'bluesky': 'conversational',
+                'mastodon': 'detailed'
+            }
+            
+            post_style = get_config(
+                social_platform.title(),
+                'post_style',
+                default=default_styles.get(social_platform_lower, 'conversational')
+            ).lower()
+            
             if social_platform_lower == 'bluesky':
                 max_chars = 250  # Conservative for Bluesky's 300 grapheme limit
                 use_hashtags = True
@@ -290,7 +304,8 @@ class OllamaLLM:
                 social_platform=social_platform_lower,
                 max_chars=max_chars,
                 use_hashtags=use_hashtags,
-                strict_mode=False
+                strict_mode=False,
+                post_style=post_style  # Pass the style configuration
             )
 
             notification = self._generate_with_retry(prompt)
@@ -301,8 +316,12 @@ class OllamaLLM:
             # GUARDRAILS: Quality validation and retry logic
             # Teaching local LLMs to count is just as hard as teaching cloud LLMs
             # At least these ones are free. You get what you pay for, I guess.
+            # Mastodon gets a flexible range (3-5), others get exactly 3
             max_validation_retries = 2
-            expected_hashtag_count = 3 if use_hashtags else 0
+            if social_platform_lower == 'mastodon' and use_hashtags:
+                expected_hashtag_count = "3-5"  # Flexible range for Mastodon
+            else:
+                expected_hashtag_count = 3 if use_hashtags else 0
             
             for retry in range(max_validation_retries):
                 # Run the gauntlet of guardrails
@@ -336,7 +355,8 @@ class OllamaLLM:
                             social_platform=social_platform_lower,
                             max_chars=max_chars,
                             use_hashtags=use_hashtags,
-                            strict_mode=True  # Enable strict mode for retry
+                            strict_mode=True,  # Enable strict mode for retry
+                            post_style=post_style  # Maintain consistent style
                         )
                         notification = self._generate_with_retry(strict_prompt)
                         if not notification:
