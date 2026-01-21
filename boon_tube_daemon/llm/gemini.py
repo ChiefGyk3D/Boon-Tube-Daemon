@@ -18,7 +18,9 @@ import google.generativeai as genai
 
 from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config, get_int_config
 from boon_tube_daemon.utils.rate_limiter import RateLimiter
-from boon_tube_daemon.llm.validator import LLMValidatorfrom boon_tube_daemon.llm.prompts import build_video_notification_prompt
+from boon_tube_daemon.llm.validator import LLMValidator
+from boon_tube_daemon.llm.prompts import build_video_notification_prompt
+
 logger = logging.getLogger(__name__)
 
 # Global rate limiting: max 4 concurrent requests, 2-second minimum delay between calls
