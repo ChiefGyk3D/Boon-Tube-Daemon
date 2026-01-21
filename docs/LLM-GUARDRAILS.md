@@ -1,10 +1,24 @@
-# LLM Guardrails & Quality Checks
+# LLM Guardrails & Quality Checks for Video Notifications
 
 ## Overview
 
-Because even AI needs adult supervision.
+Because even AI needs adult supervision when announcing YouTube videos.
 
 **Or: "How I Learned to Stop Trusting the Robot and Love the Validation"**
+
+### IMPORTANT: This is for VIDEO Upload Announcements
+
+**Boon-Tube-Daemon** monitors YouTube channels for NEW VIDEO uploads and posts announcements to social media.
+- ✅ "New tutorial: Building Your First PC! #PC #Hardware #Tutorial"
+- ✅ "Just uploaded: Minecraft Survival Tips #Minecraft #Gaming"
+- ✅ "Latest review: iPhone 15 Pro Deep Dive #iPhone #Review #Tech"
+
+This is NOT for live streaming announcements (that's Stream-Daemon's job):
+- ❌ "Going live with Valorant! Come hang out #Valorant #Live"
+- ❌ "Stream starting NOW! Let's play Minecraft #Gaming #Stream"
+
+Different purpose, different language. Videos are permanent content (tutorials, reviews, guides).
+Streams are ephemeral live events. The prompts and validation are tuned for video announcements.
 
 ### IMPORTANT: What George Carlin Jokes Are Doing Here
 
@@ -22,7 +36,7 @@ They will NOT be:
 
 The profanity and Carlin-esque humor is in the **CODE COMMENTS** and **DOCUMENTATION**.
 Because if you're going to write software, you might as well be honest about what you're doing:
-Teaching robots to fake enthusiasm about YouTube videos on the internet.
+Teaching robots to announce YouTube video uploads with fake enthusiasm.
 
 This is what we do with Computer Science degrees now. Your parents are so proud.
 
@@ -547,9 +561,11 @@ But hey, at least the code comments are funny.
 
 ### Sophisticated Prompt Engineering
 
-Because apparently we need to write fucking instruction manuals for robots to announce YouTube videos.
+Because apparently we need to write fucking instruction manuals for robots to announce YouTube video uploads.
 
 The prompt system uses **step-by-step instructions, examples, and anti-cringe warnings** designed for small LLMs (2B-4B params) that need their hands held like toddlers learning to write.
+
+**Important**: Prompts are optimized for **VIDEO UPLOAD announcements** (permanent content like tutorials, reviews, guides), not live streaming (which uses different energy and language like "going live", "come hang out").
 
 **Features**:
 - ✅ Step-by-step task breakdown (STEP 1: Do X, STEP 2: Do Y)
@@ -557,23 +573,26 @@ The prompt system uses **step-by-step instructions, examples, and anti-cringe wa
 - ✅ Explicit "DO NOT" warnings for common mistakes
 - ✅ Strict mode for retries (⚠️ CRITICAL: FOLLOW INSTRUCTIONS)
 - ✅ Platform-specific templates (Discord, Bluesky, Mastodon, Matrix)
+- ✅ Video-focused language (emphasizes what viewers will learn/see)
 
 **Example Prompt Structure**:
 ```
-TASK: Write a short post for this video.
+TASK: Write a short announcement for this NEW VIDEO.
 
 STEP 1 - CONTENT RULES:
 ✓ Length: MUST be 250 characters or less
-✓ Tone: Casual, friendly
+✓ Tone: Enthusiastic but natural
+✓ Content: Highlight what the video covers
 ✗ DO NOT use cringe words: "INSANE", "EPIC", "CRAZY"
 ✗ DO NOT include URLs (added automatically)
+✗ DO NOT invent details (no "limited time", "exclusive")
 
 STEP 2 - HASHTAG RULES:
 You MUST include EXACTLY 3 hashtags.
 Count: 1, 2, 3. Not 2. Not 4. Exactly 3.
 
 EXAMPLES:
-Good: "New PC build guide! #PC #Hardware #Tutorial"
+Good: "New PC building tutorial! Learn how to choose parts #PC #Hardware #Tutorial"
 Bad: "EPIC video! #INSANE #HYPE" (cringe words)
 
 NOW: Write the post...

@@ -6,7 +6,7 @@
 Advanced prompt templates for LLM message generation.
 
 Because apparently we need to write a fucking instruction manual for robots
-to sound like humans announcing YouTube videos.
+to announce YouTube videos on social media.
 
 These prompts use step-by-step instructions, examples, and anti-cringe warnings
 because small LLMs (2B-4B params) need their hands held like toddlers learning to write.
@@ -14,6 +14,9 @@ because small LLMs (2B-4B params) need their hands held like toddlers learning t
 George Carlin would've had a field day: "We built machines that can process billions
 of operations per second, but we still need to tell them 'Don't say INSANE!' like
 we're teaching a teenager not to embarrass themselves on TikTok."
+
+NOTE: This is for VIDEO UPLOAD notifications, not live stream announcements.
+Videos are permanent content (tutorials, reviews, walkthroughs), not ephemeral streams.
 """
 
 
@@ -28,10 +31,10 @@ def build_video_notification_prompt(
     strict_mode: bool = False
 ) -> str:
     """
-    Build sophisticated prompt for video notifications with step-by-step instructions.
+    Build sophisticated prompt for VIDEO upload notifications with step-by-step instructions.
     
-    Designed for small LLMs with explicit constraints to prevent hallucinations.
-    Uses examples for better enforcement because AI learns by copying, not understanding.
+    Designed for YouTube/TikTok/etc VIDEO content (not live streams).
+    Uses explicit constraints to prevent hallucinations and examples for better enforcement.
     
     Args:
         platform_name: Source platform (YouTube, TikTok, etc.)
@@ -46,7 +49,7 @@ def build_video_notification_prompt(
     Returns:
         Formatted prompt string
         
-    This is peak human achievement: Writing essays to teach robots how to count to three.
+    This is peak human achievement: Writing essays to teach robots how to announce videos.
     """
     strict_prefix = ""
     if strict_mode:
@@ -142,9 +145,9 @@ Title: "Game Review - Latest RPG Analysis"
 Good post: "Posted my analysis of the new RPG. Spoiler-free review with gameplay insights."
 (Informative, no hashtags)"""
     
-    return f"""{strict_prefix}You are a social media assistant that writes {social_platform.title()} posts announcing new {platform_name} videos.
+    return f"""{strict_prefix}You are a social media assistant that announces new {platform_name} video uploads.
 
-TASK: Write a SHORT, engaging post for this new video by {creator_name}.
+TASK: Write a SHORT, engaging post announcing this NEW VIDEO.
 
 VIDEO TITLE: "{title}"
 VIDEO DESCRIPTION: {description}
@@ -152,89 +155,14 @@ VIDEO DESCRIPTION: {description}
 STEP 1 - CONTENT RULES (FOLLOW EXACTLY):
 ✓ Length: MUST be {max_chars} characters or less (this is NON-NEGOTIABLE)
 ✓ Output: ONLY the post text (no quotes, no labels, no "Here's...")
-✓ Tone: Casual, friendly, genuine (like a real person, not a bot)
-✓ Content: Focus on what the video is about based on the title
-✓ Emoji: Use 0-1 emoji maximum (optional, don't spam)
+✓ Tone: Enthusiastic but natural (not over-the-top)
+✓ Content: Highlight what the video covers, what viewers will learn/see
+✓ Emoji: Use 0-1 emoji maximum (optional, relevant to content)
 ✗ DO NOT include the URL (it's added automatically)
-✗ DO NOT invent details not in title/description (no "special guests", "limited time", "tonight at 7pm")
-✗ DO NOT use cringe words: "INSANE", "EPIC", "CRAZY", "UNMISSABLE", "smash that"
-✗ DO NOT use greetings like "Hey everyone!" or "What's up {social_platform}!" - just get to the content{hashtag_instruction}{examples}
+✗ DO NOT invent details not in title/description (no "limited time", "special offer", "exclusive", fake timestamps)
+✗ DO NOT use cringe words: "INSANE", "EPIC", "CRAZY", "UNMISSABLE", "smash that like button"
+✗ DO NOT use greetings like "Hey everyone!" or "What's up {social_platform}!" - announce the video directly{hashtag_instruction}{examples}
 
-NOW: Write the post for "{title}". Remember: {"exactly " + str(hashtag_count) + " hashtags, " if hashtag_count > 0 else ""}under {max_chars} characters, NO URLs.
-
-Post:"""
-
-
-def build_stream_start_prompt(
-    platform_name: str,
-    username: str,
-    title: str,
-    content_max: int,
-    strict_mode: bool = False
-) -> str:
-    """
-    Build optimized prompt for stream start messages (live notifications).
-    
-    This is for when someone goes LIVE (streaming), not uploading a video.
-    Different energy, different phrasing.
-    
-    Args:
-        platform_name: Streaming platform (Twitch, YouTube, Kick)
-        username: Streamer username
-        title: Stream title
-        content_max: Maximum character count for generated content
-        strict_mode: If True, adds extra emphasis for rule compliance
-    
-    Returns:
-        Formatted prompt string
-    """
-    strict_prefix = ""
-    if strict_mode:
-        strict_prefix = """⚠️ CRITICAL: Previous attempt violated rules. FOLLOW INSTRUCTIONS EXACTLY. ⚠️
-
-"""
-    
-    return f"""{strict_prefix}You are a social media assistant that writes go-live stream announcements.
-
-TASK: Write a short, engaging post announcing that {username} is live on {platform_name}.
-
-STREAM TITLE: "{title}"
-
-STEP 1 - CONTENT RULES (FOLLOW EXACTLY):
-✓ Length: MUST be {content_max} characters or less
-✓ Output: ONLY the post text (no quotes, no meta-commentary, no labels)
-✓ Tone: Casual, friendly, genuine (like a real person, not a bot)
-✓ Call-to-action: Include ONE phrase like "come hang out", "join me", or "let's go"
-✓ Emoji: Use 0-1 emoji maximum (optional)
-✗ DO NOT include the URL (it's added automatically)
-✗ DO NOT invent details not in the title (no "drops enabled", "giveaways", "tonight at 7pm")
-✗ DO NOT use cringe words: "INSANE", "EPIC", "smash that", "UNMISSABLE"
-
-STEP 2 - HASHTAG RULES (CRITICAL):
-You MUST include EXACTLY 3 hashtags at the end.
-
-Count: 1, 2, 3 hashtags. Not 2. Not 4. Exactly 3.
-
-Hashtag source rules:
-- Extract hashtags ONLY from words in the stream title: "{title}"
-- NEVER use the username "{username}" or any part of it as a hashtag
-- NEVER use generic tags (#Gaming, #Live, #Stream) unless in the title
-- Format: space before each hashtag
-
-EXAMPLES:
-
-Example 1:
-Title: "Minecraft Creative Building"
-Good post: "Building something cool in Minecraft! Come hang out and share ideas 🏗️ #Minecraft #Creative #Building"
-
-Example 2:
-Title: "Valorant Competitive"
-Good post: "Ranked grind time! Let's climb together #Valorant #Competitive #FPS"
-
-Bad examples to AVOID:
-✗ "Epic stream starting NOW! #LIVE #INSANE #HYPE" (cringe words, generic tags)
-✗ Using only 2 hashtags or using 4+ hashtags
-
-NOW: Write the post for "{title}" on {platform_name}. Remember: exactly 3 hashtags, under {content_max} characters.
+NOW: Write the announcement for "{title}". Remember: {"exactly " + str(hashtag_count) + " hashtags, " if hashtag_count > 0 else ""}under {max_chars} characters, NO URLs.
 
 Post:"""
