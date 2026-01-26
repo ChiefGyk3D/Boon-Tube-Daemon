@@ -11,11 +11,20 @@ George Carlin would've loved this: We built computers to do our thinking for us,
 and now we're using them to write notifications about cat videos. What a time to be alive.
 The AI doesn't judge your content - it just generates the post and moves on with its life.
 Unlike your relatives who still don't understand what you do for a living.
+
+Features:
+- Local LLM server (no cloud API costs - your electricity bill is another story)
+- Privacy-first (data never leaves your network)
+- Sophisticated prompts optimized for small LLMs (4B-12B params)
+- Quality guardrails (deduplication, emoji limits, profanity filter)
+- Platform-specific validation
+- Qwen3 thinking mode support
 """
 
 import logging
 import re
-from typing import Optional
+import time
+from typing import Optional, List, Set, Tuple
 
 try:
     import ollama
@@ -38,6 +47,7 @@ class OllamaLLM:
     - No rate limits (go wild, you beautiful content creator)
     - Support for various models (gemma3, qwen2.5, llama3, mistral, etc.)
     - Qwen3 thinking mode support (for when your AI needs to philosophize before tweeting)
+    - Quality guardrails (deduplication, emoji limits, profanity filter, validation)
     
     Why use local AI? Because sending your video titles to Google is like
     shouting your diary entries in a crowded mall. Sure, it works, but at what cost?
@@ -49,8 +59,34 @@ class OllamaLLM:
         self.model = None
         self.ollama_client = None
         self.ollama_host = None
+        
+        # Qwen3 thinking mode support
         self.thinking_mode_enabled = False
         self.thinking_token_multiplier = 4.0
+        
+        # Generation parameters (because even AI needs tuning knobs)
+        self.temperature = 0.3
+        self.top_p = 0.9
+        self.max_tokens = 150
+        
+        # Retry configuration
+        self.max_retries = 3
+        self.retry_delay_base = 2
+        
+        # Guardrails configuration
+        # Because we need rules to govern the rule-following machine. Meta as fuck.
+        self.enable_deduplication = True
+        self.dedup_cache_size = 20
+        self.enable_quality_scoring = False
+        self.min_quality_score = 6
+        self.max_emoji_count = 1
+        self.enable_profanity_filter = False
+        self.profanity_severity = 'moderate'
+        self.enable_platform_validation = True
+        
+        # Deduplication cache: stores recent messages to prevent repeats
+        # Because variety is the spice of life, even for robot-generated content
+        self._message_cache: List[str] = []
         
     def authenticate(self) -> bool:
         """
@@ -86,6 +122,25 @@ class OllamaLLM:
             # Qwen3 thinking mode support
             self.thinking_mode_enabled = get_bool_config('LLM', 'enable_thinking_mode', default=False)
             self.thinking_token_multiplier = float(get_config('LLM', 'thinking_token_multiplier', default='4.0'))
+            
+            # Generation parameters
+            self.temperature = float(get_config('LLM', 'temperature', default='0.3'))
+            self.top_p = float(get_config('LLM', 'top_p', default='0.9'))
+            self.max_tokens = int(get_config('LLM', 'max_tokens', default='150'))
+            
+            # Retry configuration
+            self.max_retries = int(get_config('LLM', 'max_retries', default='3'))
+            self.retry_delay_base = int(get_config('LLM', 'retry_delay_base', default='2'))
+            
+            # Guardrails configuration
+            self.enable_deduplication = get_bool_config('LLM', 'enable_deduplication', default=True)
+            self.dedup_cache_size = int(get_config('LLM', 'dedup_cache_size', default='20'))
+            self.enable_quality_scoring = get_bool_config('LLM', 'enable_quality_scoring', default=False)
+            self.min_quality_score = int(get_config('LLM', 'min_quality_score', default='6'))
+            self.max_emoji_count = int(get_config('LLM', 'max_emoji_count', default='1'))
+            self.enable_profanity_filter = get_bool_config('LLM', 'enable_profanity_filter', default=False)
+            self.profanity_severity = get_config('LLM', 'profanity_severity', default='moderate')
+            self.enable_platform_validation = get_bool_config('LLM', 'enable_platform_validation', default=True)
             
             # Build full host URL if port is specified separately
             if not ollama_host.startswith('http'):
@@ -196,15 +251,262 @@ class OllamaLLM:
         logger.warning("Could not extract notification from thinking mode output")
         return None
     
-    def _generate_with_retry(self, prompt: str, max_retries: int = 3, initial_delay: float = 2.0, max_tokens: int = 150) -> Optional[str]:
+    # =========================================================================
+    # GUARDRAILS & VALIDATION METHODS
+    # =========================================================================
+    # "We built machines that can think, now we need machines to watch the thinking machines.
+    #  It's supervision turtles all the way down." - George Carlin (probably)
+    
+    @staticmethod
+    def _extract_hashtags(message: str) -> List[str]:
+        """
+        Extract all hashtags from a message.
+        
+        Because we need to teach a computer to recognize words that start with #.
+        In the history of human civilization, this is where we ended up.
+        
+        Args:
+            message: The generated message
+            
+        Returns:
+            List of hashtags (without # prefix, lowercase)
+        """
+        # Match hashtags: # followed by a letter, then any alphanumeric characters
+        hashtags = re.findall(r'#([a-zA-Z]\w*)', message)
+        return [tag.lower() for tag in hashtags]
+    
+    @staticmethod
+    def _contains_forbidden_words(message: str) -> Tuple[bool, List[str]]:
+        """
+        Check if message contains clickbait/forbidden words.
+        
+        We built a machine that can process language at superhuman levels, and we use it
+        to generate social media posts. Then we have to check if the machine used the words
+        "INSANE" or "EPIC" because apparently we can't trust it to follow basic instructions.
+        
+        It's like hiring a PhD to write greeting cards, then having to make sure they didn't
+        write anything too smart. Welcome to the goddamn future.
+        
+        Args:
+            message: The generated message
+            
+        Returns:
+            tuple: (has_forbidden_words, list_of_found_words)
+        """
+        # Forbidden words we explicitly tell the AI not to use
+        forbidden_words = [
+            'insane', 'epic', 'crazy', 'smash', 'unmissable', 
+            'incredible', 'amazing', 'lit', 'fire', 'legendary',
+            'mind-blowing', 'jaw-dropping', 'unbelievable'
+        ]
+        
+        message_lower = message.lower()
+        found_words = []
+        
+        for word in forbidden_words:
+            # Use word boundaries to avoid false positives
+            if re.search(rf'\b{word}\b', message_lower):
+                found_words.append(word)
+        
+        return (len(found_words) > 0, found_words)
+    
+    @staticmethod
+    def _count_emojis(message: str) -> int:
+        """
+        Count emoji characters in a message.
+        
+        Because apparently some people think more emojis = more engagement.
+        Spoiler alert: It doesn't. You just look like you're 12.
+        
+        Args:
+            message: The message to check
+            
+        Returns:
+            Number of emoji characters
+        """
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"  # emoticons
+            "\U0001F300-\U0001F5FF"  # symbols & pictographs
+            "\U0001F680-\U0001F6FF"  # transport & map symbols
+            "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            "\U00002702-\U000027B0"  # dingbats
+            "\U000024C2-\U0001F251"  # enclosed characters
+            "]", flags=re.UNICODE
+        )
+        return len(emoji_pattern.findall(message))
+    
+    @staticmethod
+    def _contains_profanity(message: str, severity: str = 'moderate') -> Tuple[bool, List[str]]:
+        """
+        Check if message contains profanity.
+        
+        Ironic, considering this entire codebase is written with Carlin-style commentary.
+        But apparently we draw the line at the AI dropping F-bombs about your cat videos.
+        
+        Args:
+            message: The message to check
+            severity: 'mild', 'moderate', or 'severe'
+            
+        Returns:
+            tuple: (has_profanity, list_of_found_words)
+        """
+        # Profanity lists by severity
+        mild_words = ['damn', 'hell', 'crap', 'suck', 'sucks', 'piss', 'pissed']
+        moderate_words = ['ass', 'bastard', 'bitch', 'dick', 'cock', 'pussy', 'slut', 'whore']
+        severe_words = ['fuck', 'fucking', 'shit', 'shitty', 'motherfucker', 'asshole', 'cunt']
+        
+        if severity == 'severe':
+            check_words = mild_words + moderate_words + severe_words
+        elif severity == 'moderate':
+            check_words = mild_words + moderate_words
+        else:  # mild
+            check_words = mild_words
+        
+        message_lower = message.lower()
+        found_words = []
+        
+        for word in check_words:
+            if re.search(rf'\b{word}\b', message_lower):
+                found_words.append(word)
+        
+        return (len(found_words) > 0, found_words)
+    
+    def _is_duplicate_message(self, message: str) -> bool:
+        """
+        Check if message is too similar to recent messages.
+        
+        Because nobody wants to read the same notification 5 times.
+        At least the AI has the decency to pretend it's trying to be different.
+        
+        Args:
+            message: The generated message to check
+            
+        Returns:
+            True if message is a duplicate or too similar
+        """
+        if not self.enable_deduplication:
+            return False
+        
+        # Normalize message for comparison
+        normalized = message.lower()
+        normalized = re.sub(r'#\w+', '', normalized)  # Remove hashtags
+        normalized = re.sub(r'[^\w\s]', '', normalized)  # Remove punctuation/emoji
+        normalized = re.sub(r'\s+', ' ', normalized).strip()  # Normalize whitespace
+        
+        for cached in self._message_cache:
+            cached_normalized = cached.lower()
+            cached_normalized = re.sub(r'#\w+', '', cached_normalized)
+            cached_normalized = re.sub(r'[^\w\s]', '', cached_normalized)
+            cached_normalized = re.sub(r'\s+', ' ', cached_normalized).strip()
+            
+            # Exact match
+            if normalized == cached_normalized:
+                return True
+            
+            # Calculate word overlap (>80% = duplicate)
+            msg_words = set(normalized.split())
+            cached_words = set(cached_normalized.split())
+            if len(msg_words) > 0 and len(cached_words) > 0:
+                overlap = len(msg_words & cached_words) / max(len(msg_words), len(cached_words))
+                if overlap > 0.8:
+                    return True
+        
+        return False
+    
+    def _add_to_message_cache(self, message: str):
+        """
+        Add message to deduplication cache.
+        
+        Uses a simple FIFO queue. Old messages get pushed out.
+        It's not rocket science, just a fucking list.
+        """
+        if not self.enable_deduplication:
+            return
+        
+        self._message_cache.append(message)
+        
+        # Keep cache size limited
+        if len(self._message_cache) > self.dedup_cache_size:
+            self._message_cache.pop(0)
+    
+    def _validate_platform_specific(self, message: str, platform: str) -> List[str]:
+        """
+        Platform-specific validation rules.
+        
+        Because each social media platform is a special snowflake
+        with its own rules and quirks that we have to account for.
+        
+        Args:
+            message: The generated message
+            platform: Platform name (bluesky, mastodon, discord, matrix)
+            
+        Returns:
+            list_of_issues (empty if valid)
+        """
+        if not self.enable_platform_validation:
+            return []
+        
+        issues = []
+        platform_lower = platform.lower()
+        
+        if platform_lower == 'discord':
+            # Check for mass pings
+            if '@everyone' in message or '@here' in message:
+                issues.append("Contains @everyone or @here mention")
+            
+            # Check for unmatched markdown
+            unmatched_markdown = (
+                message.count('**') % 2 != 0 or
+                message.count('__') % 2 != 0
+            )
+            if unmatched_markdown:
+                issues.append("Unmatched markdown formatting")
+        
+        elif platform_lower == 'bluesky':
+            # Check for URLs in content (we add URL separately)
+            urls_in_content = re.findall(r'https?://\S+', message)
+            if urls_in_content:
+                issues.append("URL found in content (should be added separately)")
+        
+        elif platform_lower == 'mastodon':
+            # Check for HTML entities
+            if re.search(r'&[a-z]+;', message):
+                issues.append("HTML entities detected (should be plain text)")
+        
+        return issues
+    
+    @staticmethod
+    def _safe_trim(message: str, limit: int) -> str:
+        """
+        Safely trim message to character limit without cutting words mid-token.
+        
+        Args:
+            message: The message to trim
+            limit: Maximum character limit
+        
+        Returns:
+            Trimmed message at word boundary
+        """
+        message = message.strip()
+        if len(message) <= limit:
+            return message
+        
+        # Try to trim at a word boundary
+        trimmed = message[:limit].rsplit(' ', 1)[0].rstrip()
+        
+        # If we trimmed too aggressively, hard cut
+        return trimmed if trimmed else message[:limit]
+    
+    def _generate_with_retry(self, prompt: str, max_retries: int = None, initial_delay: float = None, max_tokens: int = None) -> Optional[str]:
         """
         Generate content with Ollama, with retry logic and thinking mode support.
         
         Args:
             prompt: The prompt to send to Ollama
-            max_retries: Maximum number of retry attempts (default: 3)
-            initial_delay: Initial delay in seconds between retries (default: 2.0)
-            max_tokens: Maximum tokens for response (default: 150)
+            max_retries: Maximum number of retry attempts (defaults to self.max_retries)
+            initial_delay: Initial delay in seconds (defaults to self.retry_delay_base)
+            max_tokens: Maximum tokens for response (defaults to self.max_tokens)
             
         Returns:
             Generated text or None on failure
@@ -216,7 +518,13 @@ class OllamaLLM:
         if not self.enabled or not self.ollama_client:
             return None
         
-        import time
+        # Use instance defaults if not specified
+        if max_retries is None:
+            max_retries = self.max_retries
+        if initial_delay is None:
+            initial_delay = float(self.retry_delay_base)
+        if max_tokens is None:
+            max_tokens = self.max_tokens
         
         last_error = None
         delay = initial_delay
@@ -229,14 +537,14 @@ class OllamaLLM:
         
         for attempt in range(max_retries):
             try:
-                # Make API call to Ollama with options
+                # Make API call to Ollama with configurable options
                 response = self.ollama_client.generate(
                     model=self.model,
                     prompt=prompt,
                     options={
                         'num_predict': actual_max_tokens,
-                        'temperature': 0.3,
-                        'top_p': 0.9,
+                        'temperature': self.temperature,
+                        'top_p': self.top_p,
                     }
                 )
                 
@@ -303,6 +611,10 @@ class OllamaLLM:
             
         Returns:
             Generated notification text or None on error
+            
+        This is where the magic happens. Or the illusion of magic, anyway.
+        We take your video title and ask a robot to make it sound exciting.
+        George Carlin would've had a field day with this.
         """
         if not self.enabled:
             return None
@@ -311,76 +623,65 @@ class OllamaLLM:
             title = video_data.get('title', '')
             description = video_data.get('description', '')
             url = video_data.get('url', '')
+            channel_name = video_data.get('channel_name', platform_name)
             
-            # Platform-specific character limits
+            # Platform-specific character limits and hashtag settings
             social_platform_lower = social_platform.lower()
             
             if social_platform_lower == 'bluesky':
                 max_chars = 250  # Conservative for Bluesky's 300 grapheme limit
                 use_hashtags = True
+                hashtag_count = 3
             elif social_platform_lower == 'mastodon':
                 max_chars = 400  # Leave room for URL and hashtags
                 use_hashtags = True
+                hashtag_count = 3
             elif social_platform_lower == 'discord':
                 max_chars = 300
                 use_hashtags = False
+                hashtag_count = 0
             elif social_platform_lower == 'matrix':
                 max_chars = 350
                 use_hashtags = False
+                hashtag_count = 0
             else:
                 max_chars = 300
                 use_hashtags = False
+                hashtag_count = 0
             
-            # Build platform-specific prompt
-            hashtag_instruction = ""
-            if use_hashtags:
-                hashtag_instruction = "\n- Include 2-3 SHORT relevant hashtags at the end"
+            # Build the optimized prompt
+            prompt = self._build_notification_prompt(
+                platform_name=platform_name,
+                channel_name=channel_name,
+                title=title,
+                description=description,
+                max_chars=max_chars,
+                use_hashtags=use_hashtags,
+                hashtag_count=hashtag_count,
+                social_platform=social_platform
+            )
             
-            prompt = f"""Create a SHORT notification post for a new {platform_name} video.
-
-Title: {title}
-Description (summary): {description[:200] if description else 'No description available'}
-
-RULES:
-- ABSOLUTE MAXIMUM: {max_chars} characters total
-- Output ONLY the post text (no quotes, no labels, no "Here's...")
-- DO NOT include the URL (it will be added automatically)
-- Be conversational and engaging
-- Focus on the video title/topic
-- NO greetings like "Hey everyone!" - get straight to the content
-- NO placeholder URLs or "[VIDEO_ID]" text{hashtag_instruction}
-
-Write ONLY the post text (under {max_chars} chars, no URL):"""
-
+            # Generate with retry logic
             notification = self._generate_with_retry(prompt)
             
             if not notification:
+                logger.warning(f"Failed to generate notification for {social_platform}")
                 return None
             
-            # Clean up common meta-text patterns
-            import re
-            meta_patterns = [
-                r'^(?:Here\'?s|Okay,? here\'?s|Alright,? here\'?s)\s+.*?:?\s*',
-                r'^(?:Here you go|Sure thing|Certainly).*?:?\s*',
-                r'^Draft.*?:?\s*',
-            ]
+            # Apply guardrails and validation
+            notification = self._apply_guardrails(
+                notification,
+                max_chars=max_chars,
+                social_platform=social_platform,
+                use_hashtags=use_hashtags
+            )
             
-            for pattern in meta_patterns:
-                notification = re.sub(pattern, '', notification, flags=re.IGNORECASE | re.MULTILINE)
-            notification = notification.strip()
+            if not notification:
+                logger.warning(f"Notification failed guardrails for {social_platform}")
+                return None
             
-            # Remove any URLs the LLM might have included
-            notification = re.sub(r'https?://[^\s]+', '', notification).strip()
-            
-            # Enforce character limit
-            if len(notification) > max_chars:
-                logger.warning(f"Notification too long ({len(notification)} chars), truncating to {max_chars}")
-                # Truncate at word boundary
-                truncated = notification[:max_chars]
-                last_space = truncated.rfind(' ')
-                if last_space > max_chars - 50:
-                    truncated = truncated[:last_space]
-                notification = truncated.strip()
+            # Add to deduplication cache
+            self._add_to_message_cache(notification)
             
             # Add URL
             if url:
@@ -390,5 +691,164 @@ Write ONLY the post text (under {max_chars} chars, no URL):"""
             return notification
             
         except Exception as e:
-            logger.error(f"Error generating Ollama notification for {social_platform}")
+            logger.error(f"Error generating Ollama notification for {social_platform}: {e}")
             return None
+    
+    def _build_notification_prompt(
+        self,
+        platform_name: str,
+        channel_name: str,
+        title: str,
+        description: str,
+        max_chars: int,
+        use_hashtags: bool,
+        hashtag_count: int,
+        social_platform: str
+    ) -> str:
+        """
+        Build an optimized prompt for video notification generation.
+        
+        Designed for small LLMs (4B-12B params) with explicit constraints
+        to prevent hallucinations and ensure quality output.
+        
+        George Carlin would've loved this: We spent thousands of years teaching humans
+        to write, and now we're teaching machines to sound like humans who can barely write.
+        "Don't say EPIC! Don't say INSANE!" - like training a puppy not to shit on the rug.
+        """
+        # Clean up description (first 200 chars, remove URLs)
+        clean_description = description[:200] if description else ''
+        clean_description = re.sub(r'https?://\S+', '', clean_description).strip()
+        
+        # Build hashtag instructions
+        hashtag_instruction = ""
+        if use_hashtags:
+            hashtag_instruction = f"""
+
+STEP 3 - HASHTAG RULES (CRITICAL):
+You MUST include EXACTLY {hashtag_count} hashtags at the end.
+- Extract hashtags from key words/topics in the title
+- NEVER use generic tags like #Video, #YouTube, #New, #Content
+- Format: space before each hashtag"""
+        
+        prompt = f"""You are a social media assistant that writes engaging video announcements with personality.
+
+TASK: Write a short, engaging post announcing a new {platform_name} video from {channel_name}.
+
+VIDEO TITLE: "{title}"
+{f'DESCRIPTION: "{clean_description}"' if clean_description else ''}
+
+STEP 1 - STYLE & TONE:
+✓ Match the vibe: Read the title and match its energy (technical, gaming, tutorial, entertainment, etc.)
+✓ Be personality-driven: Write like a real person with character, not a corporate bot
+✓ Add interest: Make people want to click - build curiosity without being cringe
+✓ Use formatting: Short lines or natural flow work great
+✓ Emoji: Use 0-1 emoji that fits the vibe (🎬 for video, 🎮 for gaming, 💻 for tech, etc.)
+
+STEP 2 - CONTENT RULES (FOLLOW EXACTLY):
+✓ Length: MUST be {max_chars} characters or less (including hashtags)
+✓ Output: ONLY the post text (no quotes, no meta-commentary, no "Here's...")
+✓ Based on title: Reference what the video is about BUT don't just copy/paste the title
+✓ Call-to-action: Natural invite like "check it out", "link below", "new video"
+✗ DO NOT repost the title verbatim - the link already shows it
+✗ DO NOT include the URL (it's added automatically)
+✗ DO NOT invent details not in the title (no "giveaways", "premiering tonight", etc.)
+✗ DO NOT use cringe words: "INSANE", "EPIC", "smash that", "unmissable", "legendary", "incredible"{hashtag_instruction}
+
+EXAMPLES OF GOOD POSTS:
+
+Example 1 - Tech Tutorial:
+Title: "Building a Home Server with Proxmox"
+Good: "New video! Building out a home server with Proxmox. Full walkthrough from hardware to config 💻 #Homelab #Proxmox #SelfHosted"
+
+Example 2 - Gaming:
+Title: "Elden Ring Boss Guide - Malenia"
+Good: "Finally beat Malenia and made a guide about it. Tips that actually work. #EldenRing #BossGuide #Gaming"
+
+Example 3 - Casual/Vlog:
+Title: "Day in My Life - Remote Worker Edition"
+Good: "New vlog is up! A day in my life working remote. Coffee, code, and questionable time management 🎬 #RemoteWork #Vlog #DayInMyLife"
+
+BAD examples to AVOID:
+✗ "EPIC new video just dropped! INSANE content! #AMAZING #EPIC" (cringe, forbidden words)
+✗ Just copying: "Building a Home Server with Proxmox #Server #Home #Build" (lazy, no personality)
+✗ "Check out my new video at https://..." (don't include URL)
+
+NOW: Write the post for "{title}" from {channel_name}. Match the title's energy. {f'Exactly {hashtag_count} hashtags. ' if use_hashtags else 'No hashtags needed. '}Under {max_chars} characters.
+
+Post:"""
+        
+        return prompt
+    
+    def _apply_guardrails(
+        self,
+        notification: str,
+        max_chars: int,
+        social_platform: str,
+        use_hashtags: bool
+    ) -> Optional[str]:
+        """
+        Apply quality guardrails and validation to generated notification.
+        
+        This is the post-generation quality check. Because even robots need supervision.
+        
+        Yes, we have to fact-check the robot. The robot that we programmed. That we gave
+        explicit instructions to. And it STILL fucks up about 10% of the time.
+        
+        It's like having a calculator that's right 90% of the time. Great job, humanity.
+        
+        Returns:
+            Cleaned notification or None if it fails validation
+        """
+        if not notification:
+            return None
+        
+        # Clean up common meta-text patterns
+        meta_patterns = [
+            r'^(?:Here\'?s|Okay,? here\'?s|Alright,? here\'?s)\s+.*?:?\s*',
+            r'^(?:Here you go|Sure thing|Certainly).*?:?\s*',
+            r'^(?:Post|Draft|Output).*?:?\s*',
+            r'^"',  # Leading quote
+            r'"$',  # Trailing quote
+        ]
+        
+        for pattern in meta_patterns:
+            notification = re.sub(pattern, '', notification, flags=re.IGNORECASE | re.MULTILINE)
+        notification = notification.strip()
+        
+        # Remove any URLs the LLM might have included
+        notification = re.sub(r'https?://[^\s]+', '', notification).strip()
+        
+        # Check for forbidden words
+        has_forbidden, found_words = self._contains_forbidden_words(notification)
+        if has_forbidden:
+            logger.warning(f"⚠ Notification contains forbidden words: {', '.join(found_words)}")
+            # Don't fail, just log - the message might still be usable
+        
+        # Check emoji count
+        emoji_count = self._count_emojis(notification)
+        if emoji_count > self.max_emoji_count:
+            logger.warning(f"⚠ Too many emojis ({emoji_count}, max: {self.max_emoji_count})")
+        
+        # Check for profanity if filter is enabled
+        if self.enable_profanity_filter:
+            has_profanity, found_profanity = self._contains_profanity(notification, self.profanity_severity)
+            if has_profanity:
+                logger.warning(f"⚠ Notification contains profanity: {', '.join(found_profanity)}")
+                return None  # Fail the notification
+        
+        # Check for duplicates
+        if self._is_duplicate_message(notification):
+            logger.warning("⚠ Notification is too similar to recent messages")
+            # Don't fail, let it through but log
+        
+        # Platform-specific validation
+        platform_issues = self._validate_platform_specific(notification, social_platform)
+        if platform_issues:
+            logger.warning(f"⚠ Platform validation issues: {', '.join(platform_issues)}")
+        
+        # Enforce character limit
+        if len(notification) > max_chars:
+            logger.warning(f"Notification too long ({len(notification)} chars), trimming to {max_chars}")
+            notification = self._safe_trim(notification, max_chars)
+        
+        return notification
