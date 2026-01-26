@@ -498,6 +498,286 @@ class OllamaLLM:
         # If we trimmed too aggressively, hard cut
         return trimmed if trimmed else message[:limit]
     
+    @staticmethod
+    def _tokenize_username(username: str) -> Set[str]:
+        """
+        Tokenize username into parts that should not appear in hashtags.
+        
+        Handles various username formats:
+        - CamelCase: CoolStreamer99 -> ['cool', 'streamer', '99', 'coolstreamer99']
+        - Underscores: Cool_Streamer_99 -> ['cool', 'streamer', 'cool_streamer_99']
+        - Numbers: Gamer123 -> ['gamer', '123', 'gamer123']
+        - Prefixes: @username, #username -> removes prefix
+        
+        Because apparently teaching a computer "don't use the person's name as a hashtag"
+        is like explaining to your uncle why his username isn't interesting content.
+        
+        Args:
+            username: The content creator's username
+            
+        Returns:
+            Set of lowercase username parts (min 3 chars to avoid false positives)
+        """
+        if not username:
+            return set()
+        
+        # Remove common prefixes (@, #)
+        clean_username = username.lstrip('@#').strip()
+        
+        # Add the full username (lowercased) to the set
+        parts = {clean_username.lower()}
+        
+        # Split on underscores, hyphens, dots
+        for separator in ['_', '-', '.']:
+            if separator in clean_username:
+                parts.update(p.lower() for p in clean_username.split(separator) if len(p) >= 3)
+        
+        # Split CamelCase: CoolStreamer99 -> Cool, Streamer, 99
+        camel_parts = re.findall(r'[A-Z]*[a-z]+|[A-Z]+(?=[A-Z]|$)|[0-9]+', clean_username)
+        parts.update(p.lower() for p in camel_parts if len(p) >= 3)
+        
+        # Also add consecutive parts for partial matches
+        for i in range(len(camel_parts)):
+            for j in range(i + 1, min(i + 4, len(camel_parts) + 1)):
+                combined = ''.join(camel_parts[i:j]).lower()
+                if len(combined) >= 3:
+                    parts.add(combined)
+        
+        return parts
+    
+    @staticmethod
+    def _remove_hashtag_from_message(message: str, hashtag: str) -> str:
+        """
+        Remove a specific hashtag from the message.
+        
+        Args:
+            message: The message to modify
+            hashtag: The hashtag to remove (without #)
+            
+        Returns:
+            Message with the hashtag removed, cleaned up
+        """
+        # Remove the hashtag (case insensitive)
+        pattern = r'#' + re.escape(hashtag) + r'\b'
+        message = re.sub(pattern, '', message, flags=re.IGNORECASE)
+        
+        # Clean up extra spaces
+        message = re.sub(r'\s+', ' ', message).strip()
+        
+        return message
+    
+    def _validate_hashtags_against_username(self, message: str, username: str) -> str:
+        """
+        Remove hashtags that are derived from the username.
+        
+        This is a post-generation guardrail to filter out username-derived hashtags
+        that the LLM may have incorrectly generated despite prompt instructions.
+        
+        Because apparently teaching a computer "don't use the person's name as a hashtag"
+        is like explaining to your uncle why #MAGA isn't a personality trait.
+        
+        Args:
+            message: The generated message
+            username: The content creator's username
+            
+        Returns:
+            Message with username-derived hashtags removed
+        """
+        # Get username parts
+        username_parts = self._tokenize_username(username)
+        
+        if not username_parts:
+            return message
+        
+        # Extract hashtags from message
+        hashtags = self._extract_hashtags(message)
+        
+        # Check each hashtag against username parts
+        for hashtag in hashtags:
+            should_remove = False
+            
+            # Direct match (exact match with any username part)
+            if hashtag in username_parts:
+                should_remove = True
+                logger.debug(f"Removing hashtag #{hashtag} - direct match with username part")
+            else:
+                # Check if hashtag contains username parts (substring matching)
+                for part in username_parts:
+                    if len(part) >= 4 and part in hashtag:
+                        should_remove = True
+                        logger.debug(f"Removing hashtag #{hashtag} - contains username part '{part}'")
+                        break
+            
+            if should_remove:
+                message = self._remove_hashtag_from_message(message, hashtag)
+                logger.warning(f"⚠ Removed username-derived hashtag: #{hashtag}")
+        
+        return message
+    
+    @staticmethod
+    def _validate_message_quality(message: str, expected_hashtag_count: int, 
+                                  title: str, username: str) -> Tuple[bool, List[str]]:
+        """
+        Validate that generated message follows our rules.
+        
+        This is a post-generation quality check to catch when the LLM:
+        - Uses wrong number of hashtags
+        - Includes forbidden clickbait words
+        - Accidentally includes the URL in content
+        - Hallucinates details not in the title
+        
+        Yes, we have to fact-check the robot. The robot that we programmed. That we gave
+        explicit instructions to. And it STILL fucks up about 10% of the time.
+        
+        It's like having a calculator that's right 90% of the time. Great job, humanity.
+        We've achieved artificial intelligence that needs a fucking babysitter.
+        
+        Args:
+            message: The generated message (without URL)
+            expected_hashtag_count: Expected number of hashtags
+            title: Original video title
+            username: Content creator username
+            
+        Returns:
+            tuple: (is_valid, list_of_issues)
+        """
+        issues = []
+        
+        # Check hashtag count
+        hashtags = OllamaLLM._extract_hashtags(message)
+        if len(hashtags) != expected_hashtag_count:
+            issues.append(f"Wrong hashtag count: {len(hashtags)} (expected {expected_hashtag_count})")
+        
+        # Check for forbidden words
+        has_forbidden, found_words = OllamaLLM._contains_forbidden_words(message)
+        if has_forbidden:
+            issues.append(f"Contains forbidden words: {', '.join(found_words)}")
+        
+        # Check if message accidentally includes a URL
+        if re.search(r'https?://', message):
+            issues.append("Message contains URL (should be added separately)")
+        
+        # Check for common hallucinations (video-specific)
+        hallucination_patterns = [
+            r'drops?\s+enabled',
+            r'giveaway',
+            r'tonight\s+at\s+\d',
+            r'premiering?\s+at\s+\d',
+            r'\d+\s*pm',
+            r'\d+\s*am',
+            r'coming\s+soon',
+            r'\d+\s+views?',
+            r'subscribe\s+for',
+            r'special\s+guest',
+            r'live\s+now',
+            r'streaming\s+now',
+        ]
+        
+        for pattern in hallucination_patterns:
+            if re.search(pattern, message, re.IGNORECASE):
+                issues.append(f"Possible hallucination detected: '{pattern}'")
+                break  # Only report first hallucination
+        
+        return (len(issues) == 0, issues)
+    
+    @staticmethod
+    def _score_message_quality(message: str, title: str) -> Tuple[int, List[str]]:
+        """
+        Score message quality on a scale of 1-10.
+        
+        We're literally grading the AI's homework. Like it's in school.
+        "Sorry robot, you get a C-. Try harder next time."
+        
+        This is what we've become. Quality control for artificial enthusiasm.
+        George Carlin would have a 30-minute bit about this shit.
+        
+        Scoring criteria:
+        - 10: Perfect (natural, engaging, unique)
+        - 7-9: Good (clear, interesting)
+        - 4-6: Mediocre (generic, boring)
+        - 1-3: Bad (very generic, poor grammar, wrong info)
+        
+        Args:
+            message: The generated message
+            title: Original video title
+            
+        Returns:
+            tuple: (score 1-10, list_of_issues)
+        """
+        score = 10
+        issues = []
+        
+        # Check for generic/overused phrases (deduct 2 points each)
+        generic_phrases = [
+            'check it out',
+            'let\'s go',
+            'new video',
+            'just dropped',
+            'link below',
+            'video time',
+            'must watch'
+        ]
+        
+        message_lower = message.lower()
+        generic_count = sum(1 for phrase in generic_phrases if phrase in message_lower)
+        if generic_count > 2:
+            score -= 2
+            issues.append(f"Too many generic phrases ({generic_count})")
+        
+        # Check length (too short = lazy, too long = rambling)
+        content_without_hashtags = re.sub(r'#\w+', '', message).strip()
+        word_count = len(content_without_hashtags.split())
+        
+        if word_count < 5:
+            score -= 3
+            issues.append("Too short (feels lazy)")
+        elif word_count > 25:
+            score -= 2
+            issues.append("Too long (rambling)")
+        
+        # Check for repeated words (sign of poor generation)
+        words = content_without_hashtags.lower().split()
+        unique_ratio = len(set(words)) / len(words) if words else 0
+        if unique_ratio < 0.7:  # >30% repeated words
+            score -= 2
+            issues.append("Too many repeated words")
+        
+        # Check for title integration (should reference video content)
+        title_words = set(title.lower().split())
+        message_words = set(message_lower.split())
+        overlap = len(title_words & message_words)
+        
+        if overlap == 0:
+            score -= 3
+            issues.append("Doesn't reference video title/content")
+        
+        # Check if message is just reposting the title
+        content_before_hashtags = re.split(r'\s+#', message)[0].strip()
+        content_no_punct = re.sub(r'[^\w\s]', '', content_before_hashtags.lower())
+        title_no_punct = re.sub(r'[^\w\s]', '', title.lower())
+        
+        if content_no_punct.strip() == title_no_punct.strip():
+            score -= 4
+            issues.append("Message just reposts the title verbatim")
+        elif len(title_no_punct) > 0 and len(content_no_punct) >= len(title_no_punct) and len(title_no_punct) / len(content_no_punct) > 0.7:
+            score -= 3
+            issues.append("Message too similar to title - should add value")
+        
+        # Check for personality/engagement
+        has_personality = bool(
+            re.search(r'[!?]', message) or
+            re.search(r'[\U0001F600-\U0001F64F]', message)  # emoji
+        )
+        
+        if not has_personality:
+            score -= 1
+            issues.append("Lacks personality (no punctuation variety or emoji)")
+        
+        # Clamp score to 1-10
+        score = max(1, min(10, score))
+        
+        return (score, issues)
+    
     def _generate_with_retry(self, prompt: str, max_retries: int = None, initial_delay: float = None, max_tokens: int = None) -> Optional[str]:
         """
         Generate content with Ollama, with retry logic and thinking mode support.
@@ -673,7 +953,10 @@ class OllamaLLM:
                 notification,
                 max_chars=max_chars,
                 social_platform=social_platform,
-                use_hashtags=use_hashtags
+                use_hashtags=use_hashtags,
+                title=title,
+                channel_name=channel_name,
+                hashtag_count=hashtag_count
             )
             
             if not notification:
@@ -784,7 +1067,10 @@ Post:"""
         notification: str,
         max_chars: int,
         social_platform: str,
-        use_hashtags: bool
+        use_hashtags: bool,
+        title: str = '',
+        channel_name: str = '',
+        hashtag_count: int = 0
     ) -> Optional[str]:
         """
         Apply quality guardrails and validation to generated notification.
@@ -818,11 +1104,21 @@ Post:"""
         # Remove any URLs the LLM might have included
         notification = re.sub(r'https?://[^\s]+', '', notification).strip()
         
+        # Validate message quality (hallucinations, forbidden words, etc.)
+        if use_hashtags and hashtag_count > 0:
+            is_valid, issues = self._validate_message_quality(notification, hashtag_count, title, channel_name)
+            if not is_valid:
+                for issue in issues:
+                    logger.warning(f"⚠ Quality issue: {issue}")
+        
+        # Remove username-derived hashtags
+        if channel_name:
+            notification = self._validate_hashtags_against_username(notification, channel_name)
+        
         # Check for forbidden words
         has_forbidden, found_words = self._contains_forbidden_words(notification)
         if has_forbidden:
             logger.warning(f"⚠ Notification contains forbidden words: {', '.join(found_words)}")
-            # Don't fail, just log - the message might still be usable
         
         # Check emoji count
         emoji_count = self._count_emojis(notification)
@@ -836,10 +1132,18 @@ Post:"""
                 logger.warning(f"⚠ Notification contains profanity: {', '.join(found_profanity)}")
                 return None  # Fail the notification
         
+        # Quality scoring (if enabled)
+        if self.enable_quality_scoring and title:
+            score, score_issues = self._score_message_quality(notification, title)
+            if score < self.min_quality_score:
+                logger.warning(f"⚠ Quality score too low: {score}/10 (min: {self.min_quality_score})")
+                for issue in score_issues:
+                    logger.debug(f"  - {issue}")
+                # Don't fail, but log the issues
+        
         # Check for duplicates
         if self._is_duplicate_message(notification):
             logger.warning("⚠ Notification is too similar to recent messages")
-            # Don't fail, let it through but log
         
         # Platform-specific validation
         platform_issues = self._validate_platform_specific(notification, social_platform)
