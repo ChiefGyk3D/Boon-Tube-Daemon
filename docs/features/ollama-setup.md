@@ -1,6 +1,10 @@
 # Ollama Setup Guide for Boon-Tube-Daemon
 
+*Or: How to Make Your GPU Write Social Media Posts So You Don't Have To*
+
 This guide walks you through setting up Ollama for privacy-first, cost-free AI-powered notifications in Boon-Tube-Daemon.
+
+George Carlin would've loved this: We spent decades building supercomputers that can simulate nuclear explosions and predict weather patterns, and now we're using them to write "New video is up! Check it out! 🎬" The future is fucking weird, but at least it's efficient.
 
 ## Table of Contents
 
@@ -15,13 +19,15 @@ This guide walks you through setting up Ollama for privacy-first, cost-free AI-p
 
 ## Why Ollama?
 
+*"Because sending your video titles to Google is like shouting your diary entries in a crowded mall."*
+
 **Ollama** provides local LLM hosting with several advantages:
 
-✅ **Privacy-First:** Your video data never leaves your network  
-✅ **Zero API Costs:** Unlimited usage with no per-request fees  
+✅ **Privacy-First:** Your video data never leaves your network (unlike your personal info on every other website)  
+✅ **Zero API Costs:** Unlimited usage with no per-request fees (your electricity bill is another story)  
 ✅ **No Rate Limits:** Process as many videos as your hardware can handle  
-✅ **Fast Response:** Local inference with proper hardware  
-✅ **Offline Capable:** Works without internet connection  
+✅ **Fast Response:** ~1 second with Gemma3 on GPU (faster than you can think of what to post)  
+✅ **Offline Capable:** Works without internet connection (for those doomsday preppers among us)  
 
 **Comparison with Google Gemini:**
 
@@ -32,10 +38,14 @@ This guide walks you through setting up Ollama for privacy-first, cost-free AI-p
 | Rate Limits | None | 15 RPM (free tier) |
 | Setup Complexity | Medium | Easy |
 | Hardware Required | Yes (GPU recommended) | No |
+| Speed | ~1s (Gemma3) | ~2s |
+| Trust Issues | None | You're feeding Google |
 
 ## Quick Start
 
 ### 5-Minute Setup
+
+*If you can't set this up in 5 minutes, you might need coffee. Or a better internet connection.*
 
 1. **Install Ollama:**
    ```bash
@@ -50,11 +60,11 @@ This guide walks you through setting up Ollama for privacy-first, cost-free AI-p
 
 2. **Pull a model:**
    ```bash
-   # Recommended: Fast, good quality
-   ollama pull gemma2:2b
-   
-   # Alternative: Higher quality
+   # 🏆 Recommended: Fast AND good quality (~1 second response!)
    ollama pull gemma3:4b
+   
+   # Alternative for 16GB GPUs: Premium quality
+   ollama pull gemma3:12b
    ```
 
 3. **Start Ollama:**
@@ -77,7 +87,7 @@ This guide walks you through setting up Ollama for privacy-first, cost-free AI-p
    # Ollama server location
    LLM_OLLAMA_HOST=http://localhost  # Or your server IP: http://192.168.1.100
    LLM_OLLAMA_PORT=11434
-   LLM_MODEL=gemma2:2b
+   LLM_MODEL=gemma3:4b
    
    # Enable enhanced notifications
    LLM_ENHANCE_NOTIFICATIONS=true
@@ -88,7 +98,7 @@ This guide walks you through setting up Ollama for privacy-first, cost-free AI-p
    python3 tests/test_ollama.py
    ```
 
-That's it! Boon-Tube-Daemon will now use Ollama to generate unique, engaging posts for each social platform.
+That's it! Boon-Tube-Daemon will now use Ollama to generate unique, engaging posts for each social platform. Your GPU finally has a purpose beyond mining crypto or playing games.
 
 ## Installation
 
@@ -211,28 +221,56 @@ docker exec -it boon-tube-daemon curl http://192.168.1.100:11434/api/tags
 
 ## Model Recommendations
 
-### Recommended Models by Use Case
+*For the full deep-dive into models, see [LLM Model Recommendations](./llm-model-recommendations.md).*
 
-| Model | Size | Speed | Quality | Best For |
-|-------|------|-------|---------|----------|
-| **gemma2:2b** | 2B | ⚡⚡⚡ | ⭐⭐⭐ | **Best balance** (recommended) |
-| gemma3:4b | 4B | ⚡⚡ | ⭐⭐⭐⭐ | Higher quality, slight slower |
-| llama3.2:3b | 3B | ⚡⚡⚡ | ⭐⭐⭐ | Fast alternative to Gemma |
-| qwen2.5:3b | 3B | ⚡⚡⚡ | ⭐⭐⭐⭐ | Technical content |
-| mistral:7b | 7B | ⚡ | ⭐⭐⭐⭐⭐ | Best quality, needs 8GB+ VRAM |
-| phi3:3b | 3B | ⚡⚡⚡ | ⭐⭐⭐ | Very fast (Microsoft) |
+### 🏆 January 2026 Benchmark Results
+
+Here's the truth: **Gemma3 models are 6-10x faster than Qwen2.5** for generating notifications.
+
+| Model | Speed | Quality | Verdict |
+|-------|-------|---------|---------|
+| `gemma3:4b` | ~1.0s 🏆 | ⭐⭐⭐⭐⭐ | **RECOMMENDED** |
+| `gemma3:12b` | ~1.3s 🏆 | ⭐⭐⭐⭐⭐+ | Premium (16GB GPU) |
+| `qwen2.5:7b` | ~11s | ⭐⭐⭐⭐⭐ | Great quality, slow |
+| `llama3.1:8b` | ~8s | ⭐⭐⭐⭐ | Good general purpose |
+| `mistral:7b` | ~7s | ⭐⭐⭐⭐ | Solid |
+
+**Why Gemma3?** Because waiting 11 seconds for a notification about your cat video feels like an eternity in internet time. Gemma3 does it in 1 second. Math is easy here.
+
+### Recommended Models by VRAM
+
+| VRAM | Model | Why |
+|------|-------|-----|
+| **4GB** | `gemma3:2b` | It'll fit, it'll work |
+| **6-8GB** | `gemma3:4b` 🏆 | Sweet spot - fast & good |
+| **12GB** | `gemma3:4b` | Same model, more headroom |
+| **16GB** | `gemma3:12b` | Premium quality, still fast |
+| **24GB+** | `gemma3:27b` | Maximum quality |
+
+### Qwen3 Thinking Mode (Experimental)
+
+Qwen3 models have a "thinking mode" where they show their reasoning. It's like having a coworker who explains their entire thought process before answering a yes/no question.
+
+If you want to experiment:
+```bash
+LLM_MODEL=qwen3:4b
+LLM_ENABLE_THINKING_MODE=true
+LLM_THINKING_TOKEN_MULTIPLIER=4.0
+```
+
+But honestly? Just use Gemma3. It doesn't need therapy to write a notification.
 
 ### Hardware Requirements
 
 **Minimum:**
 - CPU: Modern multi-core processor
 - RAM: 8GB system RAM
-- GPU: Optional (CPU inference works)
+- GPU: Optional (CPU inference works, just slower)
 
 **Recommended:**
-- GPU: NVIDIA/AMD with 4GB+ VRAM
+- GPU: NVIDIA/AMD with 6GB+ VRAM
 - RAM: 16GB system RAM
-- Storage: 5-10GB for models
+- Model: `gemma3:4b`
 
 **Optimal:**
 - GPU: NVIDIA RTX 3060+ or AMD 6000+ series
@@ -245,18 +283,17 @@ docker exec -it boon-tube-daemon curl http://192.168.1.100:11434/api/tags
 # Browse available models
 # https://ollama.com/library
 
-# Search for models (requires ollama >= 0.1.26)
-ollama search llama
-ollama search gemma
-
 # List installed models
 ollama list
 
-# Pull a model
-ollama pull gemma2:2b
+# Pull recommended model
+ollama pull gemma3:4b
+
+# Pull premium model (16GB GPU)
+ollama pull gemma3:12b
 
 # Remove a model
-ollama rm gemma2:2b
+ollama rm old-model:tag
 ```
 
 ## Testing
@@ -264,11 +301,12 @@ ollama rm gemma2:2b
 ### Quick Test
 
 ```bash
-# Test Ollama connection
+# Test Ollama connection (moment of truth)
 curl http://localhost:11434/api/tags
 
-# Should return:
-# {"models":[{"name":"gemma2:2b",...}]}
+# Should return something like:
+# {"models":[{"name":"gemma3:4b",...}]}
+# If you see models, congratulations. You've joined the 21st century.
 ```
 
 ### Comprehensive Test
@@ -287,7 +325,7 @@ Testing Ollama Integration
 Test 1: Initialize Ollama connection
 ✓ Ollama connection initialized
 ✓ Connected to: http://192.168.1.100:11434
-✓ Model: gemma2:2b
+✓ Model: gemma3:4b
 
 Test 2: Generate Bluesky notification (250 char limit)
 ✓ Generated Bluesky message (242 chars):
@@ -303,6 +341,8 @@ https://youtu.be/dQw4w9WgXcQ
 ✅ SUCCESS: All Ollama tests passed!
 ============================================================
 ```
+
+*If you don't see success, don't panic. Check the troubleshooting section below. We've made all the mistakes so you don't have to.*
 
 ### Manual Test (Python)
 
@@ -331,41 +371,45 @@ else:
 
 ## Troubleshooting
 
+*Because something always goes wrong. That's just the nature of running software on hardware designed by committees.*
+
 ### "Failed to connect to Ollama"
 
 **Solution:**
 
 ```bash
-# 1. Check Ollama is running
+# 1. Check Ollama is running (is anyone home?)
 ps aux | grep ollama
 # Or: systemctl status ollama (if using systemd)
 
-# 2. Test local connection
+# 2. Test local connection (talk to yourself)
 curl http://localhost:11434/api/tags
 
 # 3. If remote server, ensure firewall allows port 11434
 sudo ufw allow 11434/tcp
 
-# 4. Start Ollama with remote access
+# 4. Start Ollama with remote access (open the doors)
 OLLAMA_HOST=0.0.0.0 ollama serve
 
-# 5. Check from Boon-Tube-Daemon host
+# 5. Check from Boon-Tube-Daemon host (phoning home)
 curl http://YOUR_SERVER_IP:11434/api/tags
 ```
 
 ### "Model not found"
 
+*The computer equivalent of "we don't carry that brand."*
+
 **Solution:**
 
 ```bash
-# Pull the model
-ollama pull gemma2:2b
+# Pull the model (download the brain)
+ollama pull gemma3:4b
 
 # Verify it's available
 ollama list
 
-# Check model name matches .env
-# LLM_MODEL=gemma2:2b  (exact match required)
+# Check model name matches .env EXACTLY
+# LLM_MODEL=gemma3:4b  (typos are not forgiven)
 ```
 
 ### "Ollama Python client not installed"
@@ -376,43 +420,47 @@ ollama list
 # Install Ollama client
 pip install ollama
 
-# Or update requirements
+# Or update requirements (the civilized way)
 pip install -r requirements.txt
 ```
 
 ### Slow Generation Times
 
+*Patience is a virtue, but 60 seconds for a notification is ridiculous.*
+
 **Causes and solutions:**
 
 1. **CPU Inference (no GPU):**
    - Expected: 30-60s per message
-   - Solution: Add GPU for 2-5s generation
+   - Solution: Add GPU for ~1s generation with Gemma3
 
 2. **Model Too Large:**
-   - Try smaller model: `ollama pull gemma2:2b`
-   - Switch from 7B → 3B → 2B models
+   - Try Gemma3: `ollama pull gemma3:4b` (~1 second!)
+   - Benchmark before blaming: smaller isn't always faster
 
 3. **Insufficient VRAM:**
    - Monitor GPU usage: `nvidia-smi` or `rocm-smi`
-   - Use smaller model or reduce concurrent requests
+   - Use appropriately sized model for your GPU
 
 4. **Network Latency (remote server):**
    - Check ping: `ping YOUR_OLLAMA_SERVER`
-   - Consider running Ollama locally
+   - Consider running Ollama locally (physics is undefeated)
 
 ### GPU Not Detected
+
+*Your expensive graphics card is being wasted on desktop rendering.*
 
 **NVIDIA:**
 
 ```bash
-# Check NVIDIA drivers
+# Check NVIDIA drivers (is it alive?)
 nvidia-smi
 
 # Reinstall if needed
 sudo apt install nvidia-driver-XXX
 
-# Verify CUDA
-ollama run gemma2:2b "test"
+# Verify GPU is being used
+ollama run gemma3:4b "test"
 # Should show GPU usage in nvidia-smi
 ```
 
@@ -428,7 +476,11 @@ export HSA_OVERRIDE_GFX_VERSION=10.3.0  # Adjust for your GPU
 
 ## Advanced Setup
 
+*For those who think "good enough" is never good enough.*
+
 ### Systemd Service (Auto-Start)
+
+*Because manually starting Ollama every reboot is so 2019.*
 
 Create `/etc/systemd/system/ollama.service`:
 
@@ -461,16 +513,18 @@ sudo systemctl status ollama.service
 
 ### Multiple Ollama Instances (Multi-GPU)
 
-See [FrankenLLM](https://github.com/ChiefGyk3D/FrankenLLM) for complete setup.
+*Because one GPU is for amateurs.*
+
+See [FrankenLLM](https://github.com/ChiefGyk3D/FrankenLLM) for complete multi-GPU setup.
 
 Quick example:
 
 ```bash
-# GPU 0 (NVIDIA)
+# GPU 0 - RTX 5060 Ti (the big gun)
 CUDA_VISIBLE_DEVICES=0 OLLAMA_HOST=0.0.0.0:11434 ollama serve &
 
-# GPU 1 (AMD)
-HSA_OVERRIDE_GFX_VERSION=10.3.0 OLLAMA_HOST=0.0.0.0:11435 ollama serve &
+# GPU 1 - RTX 3050 (the sidekick)
+CUDA_VISIBLE_DEVICES=1 OLLAMA_HOST=0.0.0.0:11435 ollama serve &
 
 # Configure Boon-Tube-Daemon to use first instance
 LLM_OLLAMA_HOST=http://localhost
@@ -479,16 +533,26 @@ LLM_OLLAMA_PORT=11434
 
 ### Model Performance Tuning
 
+*Squeeze every last token per second out of your hardware.*
+
 ```bash
 # Keep model loaded in VRAM (faster repeat requests)
+# -1 means "keep it loaded forever, I have the VRAM"
 export OLLAMA_KEEP_ALIVE=-1
 
-# Increase context window
+# Increase context window (more memory = more context)
 export OLLAMA_NUM_CTX=4096
 
 # Adjust thread count for CPU inference
+# More threads ≠ always faster. Test and find your sweet spot.
 export OLLAMA_NUM_THREAD=8
 ```
+
+---
+
+*"The whole problem with the world is that fools and fanatics are always so certain of themselves, and wiser people so full of doubts." - Bertrand Russell*
+
+*But when it comes to model selection, I'm pretty certain: use Gemma3.*
 
 ### Security Best Practices
 
