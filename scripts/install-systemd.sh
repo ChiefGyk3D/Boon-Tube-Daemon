@@ -623,6 +623,10 @@ User=$ACTUAL_USER
 Group=$ACTUAL_USER
 WorkingDirectory=$PROJECT_DIR
 
+# Clean up any stale container from unclean shutdown
+ExecStartPre=-$DOCKER_PATH stop boon-tube-daemon
+ExecStartPre=-$DOCKER_PATH rm -f boon-tube-daemon
+
 # Start the Docker container
 ExecStart=$DOCKER_PATH run -d \\
     --name boon-tube-daemon \\
