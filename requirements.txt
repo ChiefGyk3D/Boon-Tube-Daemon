@@ -42,3 +42,4 @@ pytest-cov==7.0.0
 ruff==0.14.14
 bandit==1.9.3
 safety==3.7.0
+protobuf>=6.33.5 # not directly required, pinned by Snyk to avoid a vulnerability
