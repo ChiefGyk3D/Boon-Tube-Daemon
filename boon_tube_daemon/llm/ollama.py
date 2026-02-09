@@ -829,19 +829,31 @@ class OllamaLLM:
                 )
                 
                 # Extract response text - handle thinking mode
+                # The generate() API returns:
+                #   response.response = generated text
+                #   response.thinking = thinking content (Qwen3, top-level)
+                # The chat() API returns:
+                #   response.message.content = generated text
+                #   response.message.thinking = thinking content (Qwen3)
                 result = None
                 thinking_content = None
                 
                 if isinstance(response, dict):
                     result = response.get('response', '').strip()
-                    # Check for thinking field (Qwen3)
-                    if 'message' in response and isinstance(response['message'], dict):
+                    # Check for thinking field at top level (generate() API with Qwen3)
+                    thinking_content = response.get('thinking', '')
+                    # Also check message.thinking (chat() API format)
+                    if not thinking_content and 'message' in response and isinstance(response['message'], dict):
                         thinking_content = response['message'].get('thinking', '')
                         if not result:
                             result = response['message'].get('content', '').strip()
                 elif hasattr(response, 'response'):
-                    result = response.response.strip()
-                    if hasattr(response, 'message') and hasattr(response.message, 'thinking'):
+                    result = (response.response or '').strip()
+                    # Check for thinking at top level (generate() API - Pydantic model)
+                    if hasattr(response, 'thinking') and response.thinking:
+                        thinking_content = response.thinking
+                    # Also check message.thinking (chat() API - Pydantic model)
+                    elif hasattr(response, 'message') and hasattr(response.message, 'thinking'):
                         thinking_content = response.message.thinking
                 else:
                     result = str(response).strip()
