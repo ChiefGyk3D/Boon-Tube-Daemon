@@ -15,6 +15,9 @@ google-auth-httplib2==0.2.1
 Mastodon.py==2.1.4
 atproto==0.0.65  # Bluesky AT Protocol
 
+# Text Processing
+grapheme==0.6.0  # Unicode grapheme cluster counting (for Bluesky 300-grapheme limit)
+
 # Configuration
 python-dotenv==1.2.1
 

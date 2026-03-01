@@ -396,9 +396,9 @@ Write the announcement now WITHOUT including any URLs:"""
 
             elif social_platform_lower == 'bluesky':
                 # Bluesky has 300 GRAPHEME limit (not bytes). YouTube URLs are ~43 chars.
-                # 300 total - 43 URL - 2 newlines - 5 buffer = 250 chars for content
-                # Being conservative because emojis count as multiple graphemes
-                bluesky_content_limit = 250
+                # 300 total - 46 URL - 2 newlines - 12 buffer = 240 chars for content
+                # Being conservative because LLMs are unreliable at counting characters
+                bluesky_content_limit = 240
                 prompt = f"""Create a SHORT Bluesky post for this new {platform_name} video.
 
 Title: {title}
@@ -412,7 +412,7 @@ BLUESKY RULES (MUST FOLLOW):
 - Include 2-3 SHORT hashtags at the end (counts toward limit)
 - NO greetings, NO meta text, NO placeholder URLs
 - Emojis count as 2+ characters each - use sparingly
-- Aim for 200-230 characters to be safe
+- Aim for 200-220 characters to be safe
 
 Write ONLY the post text (under {bluesky_content_limit} chars, no URLs):"""
 
@@ -472,10 +472,10 @@ Write the post now:"""
             notification = re.sub(r'https?://[^\s]+', '', notification).strip()
             
             # BLUESKY: Enforce hard character limit BEFORE adding URL
-            # Bluesky limit is 300 graphemes. URL is ~43 chars + 2 newlines = 45
+            # Bluesky limit is 300 graphemes. URL is ~46 chars + 2 newlines = 48
             # Leave buffer for grapheme counting differences (emojis, etc.)
             if social_platform_lower == 'bluesky':
-                max_content_length = 250  # 300 - 43 URL - 2 newlines - 5 buffer
+                max_content_length = 240  # 300 - 46 URL - 2 newlines - 12 buffer
                 if len(notification) > max_content_length:
                     logger.warning(f"Bluesky content too long ({len(notification)} chars), truncating to {max_content_length}")
                     # Try to truncate at a word boundary before the limit

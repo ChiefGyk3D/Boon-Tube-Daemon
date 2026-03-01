@@ -15,6 +15,22 @@ from boon_tube_daemon.utils.config import get_config, get_bool_config, get_secre
 
 logger = logging.getLogger(__name__)
 
+# Bluesky enforces a 300 grapheme limit on post text.
+# Try to use the 'grapheme' library for accurate counting; fall back to len()
+# which counts Unicode code points (always >= grapheme count, so it's a safe
+# conservative fallback).
+try:
+    import grapheme as _grapheme_lib
+    def _count_graphemes(text: str) -> int:
+        return _grapheme_lib.length(text)
+    def _slice_graphemes(text: str, limit: int) -> str:
+        return _grapheme_lib.slice(text, 0, limit)
+except ImportError:
+    def _count_graphemes(text: str) -> int:
+        return len(text)
+    def _slice_graphemes(text: str, limit: int) -> str:
+        return text[:limit]
+
 
 def _is_url_for_domain(url: str, domain: str) -> bool:
     """
@@ -68,25 +84,64 @@ class BlueskyPlatform:
             logger.warning(f"✗ Bluesky authentication failed for handle '{handle}'")
             return False
     
+    @staticmethod
+    def _truncate_to_limit(message: str, limit: int = 300) -> str:
+        """
+        Truncate a message to fit within Bluesky's grapheme limit.
+        Preserves the URL if present, truncating content text instead.
+        
+        Args:
+            message: The full message text
+            limit: Maximum grapheme count (default: 300)
+            
+        Returns:
+            Message truncated to fit within the limit
+        """
+        grapheme_count = _count_graphemes(message)
+        if grapheme_count <= limit:
+            return message
+        
+        logger.warning(f"Bluesky message too long ({grapheme_count} graphemes, {len(message)} code points), truncating to {limit}")
+        
+        # Find URL to preserve it
+        url_match = re.search(r'https?://[^\s]+', message)
+        url = url_match.group() if url_match else ''
+        url_graphemes = _count_graphemes(url) + 2 if url else 0  # +2 for newlines
+        
+        # Remove ALL URLs from content (not just trailing ones)
+        content = re.sub(r'\n*https?://[^\s]+\s*', '', message).strip()
+        
+        # Calculate max content graphemes: limit - url - newlines - ellipsis
+        max_content = limit - url_graphemes - 3  # -3 for "..."
+        if max_content < 10:
+            # URL is extremely long; just hard-truncate the whole message
+            return _slice_graphemes(message, limit)
+        
+        if _count_graphemes(content) > max_content:
+            # Truncate at word boundary
+            truncated = _slice_graphemes(content, max_content)
+            last_space = truncated.rfind(' ')
+            if last_space > max_content // 2:  # Only if we don't lose too much
+                truncated = truncated[:last_space]
+            content = truncated + '...'
+        
+        result = f"{content}\n\n{url}" if url else content
+        
+        # Final safety: verify the result fits
+        result_graphemes = _count_graphemes(result)
+        if result_graphemes > limit:
+            logger.warning(f"Post-truncation still over limit ({result_graphemes} graphemes), hard-truncating")
+            result = _slice_graphemes(result, limit)
+        
+        return result
+    
     def post(self, message: str, reply_to_id: Optional[str] = None, platform_name: Optional[str] = None, stream_data: Optional[dict] = None) -> Optional[str]:
         if not self.enabled or not self.client:
             return None
         
         # Bluesky has a 300 grapheme limit - enforce it before posting
         BLUESKY_LIMIT = 300
-        if len(message) > BLUESKY_LIMIT:
-            logger.warning(f"Bluesky message too long ({len(message)} chars), truncating to {BLUESKY_LIMIT}")
-            # Find URL to preserve it
-            url_match = re.search(r'https?://[^\s]+', message)
-            url = url_match.group() if url_match else ''
-            url_len = len(url) + 2 if url else 0  # +2 for newlines
-            
-            # Remove URL temporarily, truncate content, re-add URL
-            content = re.sub(r'\n*https?://[^\s]+\s*$', '', message).strip()
-            max_content = BLUESKY_LIMIT - url_len - 3  # -3 for "..."
-            if len(content) > max_content:
-                content = content[:max_content].rsplit(' ', 1)[0] + '...'
-            message = f"{content}\n\n{url}" if url else content
+        message = self._truncate_to_limit(message, BLUESKY_LIMIT)
             
         try:
             # Use TextBuilder to create rich text with explicit links and hashtags
@@ -284,6 +339,32 @@ class BlueskyPlatform:
                     logger.warning(f"⚠ Could not create embed card: {embed_error}")
                     embed = None
             
+            # Final safety check: verify built text fits within limit
+            built_text = text_builder.build_text()
+            built_graphemes = _count_graphemes(built_text)
+            if built_graphemes > BLUESKY_LIMIT:
+                logger.warning(f"Built text exceeds limit ({built_graphemes} graphemes), re-truncating")
+                message = self._truncate_to_limit(built_text, BLUESKY_LIMIT)
+                # Rebuild TextBuilder with truncated message
+                text_builder = client_utils.TextBuilder()
+                last_pos = 0
+                first_url = None
+                for match in re.finditer(combined_pattern, message):
+                    if match.start() > last_pos:
+                        text_builder.text(message[last_pos:match.start()])
+                    matched_text = match.group()
+                    if matched_text.startswith('http://') or matched_text.startswith('https://'):
+                        text_builder.link(matched_text, matched_text)
+                        if first_url is None:
+                            first_url = matched_text
+                    elif matched_text.startswith('#'):
+                        text_builder.tag(matched_text, matched_text[1:])
+                    last_pos = match.end()
+                if last_pos < len(message):
+                    text_builder.text(message[last_pos:])
+            
+            logger.debug(f"Bluesky post length: {built_graphemes} graphemes, {len(built_text)} code points")
+            
             if reply_to_id:
                 # Threading on Bluesky requires parent and root references
                 try:
@@ -328,5 +409,6 @@ class BlueskyPlatform:
                 return response.uri if hasattr(response, 'uri') else None
                 
         except Exception as e:
-            logger.error("✗ Bluesky post failed")
+            logger.error(f"✗ Bluesky post failed: {e}")
+            logger.debug(f"Failed message length: {_count_graphemes(message)} graphemes, {len(message)} code points")
             return None

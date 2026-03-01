@@ -921,7 +921,7 @@ class OllamaLLM:
             social_platform_lower = social_platform.lower()
             
             if social_platform_lower == 'bluesky':
-                max_chars = 250  # Conservative for Bluesky's 300 grapheme limit
+                max_chars = 240  # Conservative for Bluesky's 300 grapheme limit
                 use_hashtags = True
                 hashtag_count = 3
             elif social_platform_lower == 'mastodon':
