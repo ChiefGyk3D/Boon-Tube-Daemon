@@ -123,6 +123,13 @@ docker_install() {
     else
         echo ""
         echo "📥 Pulling Docker image from GitHub Container Registry..."
+        # Clear stale GHCR credentials to avoid "denied" errors on public images.
+        # Docker sends stored credentials even for public repos — if the token is
+        # expired/revoked, the pull fails instead of falling back to anonymous access.
+        if grep -q '"ghcr.io"' ~/.docker/config.json 2>/dev/null; then
+            echo "⚠️  Removing stored GHCR credentials (anonymous pull works for public images)..."
+            docker logout ghcr.io 2>/dev/null || true
+        fi
         $COMPOSE_CMD pull
         echo "✓ Docker image pulled"
     fi
