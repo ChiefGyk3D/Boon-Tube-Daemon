@@ -31,7 +31,7 @@ grapheme==0.6.0  # Unicode grapheme cluster counting (for Bluesky 300-grapheme l
 protobuf>=5.29.6,<6.0.0
 
 # Configuration
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 
 # LLM Integration
 google-genai>=1.65.0  # Google Gemini API (replaces deprecated google-generativeai)
