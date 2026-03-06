@@ -13,7 +13,7 @@ import logging
 import re
 import time
 from typing import Optional, Dict, Any
-import google.generativeai as genai
+from google import genai
 
 from boon_tube_daemon.utils.config import get_config, get_secret, get_bool_config, get_int_config
 from boon_tube_daemon.utils.rate_limiter import RateLimiter
@@ -36,7 +36,8 @@ class GeminiLLM:
     def __init__(self):
         self.name = "Gemini-Flash-2.0-Lite"
         self.enabled = False
-        self.model = None
+        self.client = None
+        self.model_name = None
         self.api_key = None
         self.rate_limiter = None
         
@@ -60,12 +61,12 @@ class GeminiLLM:
                 logger.warning("✗ Gemini API key not found")
                 return False
             
-            # Configure Gemini
-            genai.configure(api_key=self.api_key)
+            # Initialize client (google-genai SDK)
+            self.client = genai.Client(api_key=self.api_key)
             
-            # Initialize model
+            # Store model name for generate_content calls
             model_name = get_config('LLM', 'model', default='gemini-2.5-flash-lite')
-            self.model = genai.GenerativeModel(model_name)
+            self.model_name = model_name
             
             # Initialize rate limiter
             # Gemini Free Tier: 15 requests per minute
@@ -111,7 +112,10 @@ class GeminiLLM:
                         return None
                 
                 # Make API call
-                response = self.model.generate_content(prompt)
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                )
                 result = response.text.strip()
                 
                 # Fix escaped newlines and other escape sequences
@@ -224,7 +228,7 @@ class GeminiLLM:
         Returns:
             Generated summary or None on error
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self.client:
             return None
         
         try:
@@ -265,7 +269,7 @@ Create a concise summary that captures the main topic and would make people want
         Returns:
             Space-separated hashtags or None on error
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self.client:
             return None
         
         try:
@@ -319,7 +323,7 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
         Returns:
             Enhanced notification text or None on error
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self.client:
             return None
         
         try:
@@ -511,7 +515,7 @@ Write the post now:"""
         Returns:
             Sentiment label (positive, negative, neutral, informative, etc.)
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self.client:
             return None
         
         try:
@@ -547,7 +551,7 @@ Description: {description[:300]}"""
         Returns:
             True if should notify, False if should skip
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self.client:
             return True  # Default to notifying if LLM not available
         
         # Check if filtering is enabled
