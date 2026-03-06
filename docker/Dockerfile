@@ -1,10 +1,6 @@
 # Boon-Tube-Daemon Docker Image
 # Python 3.14 with multi-arch support: amd64, arm64
 #
-# NOTE: This build excludes TikTok/Playwright dependencies to reduce image size
-# and eliminate browser-related vulnerabilities. TikTok support is planned but
-# not yet functional. When TikTok is ready, switch to requirements.txt (full build).
-#
 # Security fixes:
 # - CVE-2025-7709: SQLite upgraded to 3.50.4 (from 3.46.1)
 # - CVE-2025-8869: pip upgraded to 25.3+ (symbolic link extraction)
@@ -36,8 +32,8 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy requirements first for better caching (without TikTok/Playwright dependencies)
-COPY docker/requirements-no-tiktok.txt /app/requirements.txt
+# Copy requirements first for better caching
+COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 # Upgrade pip to 25.3+ to fix CVE-2025-8869 (symbolic link extraction vulnerability)
