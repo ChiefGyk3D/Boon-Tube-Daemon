@@ -54,9 +54,10 @@ VOLUME ["/app/config"]
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Health check
-HEALTHCHECK --interval=5m --timeout=30s --start-period=60s --retries=3 \
-  CMD python -c "import boon_tube_daemon; print('OK')" || exit 1
+# Health check — verify PID 1 (main process) is alive
+# Note: pgrep is not available in python:slim images, use shell builtins
+HEALTHCHECK --interval=5m --timeout=5s --start-period=60s --retries=3 \
+  CMD test -d /proc/1
 
 # Run the daemon
 CMD ["python", "-u", "main.py"]

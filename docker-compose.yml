@@ -23,11 +23,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     
-    # Health check
+    # Health check — verify PID 1 (main process) is alive
     healthcheck:
-      test: ["CMD", "python", "-c", "import boon_tube_daemon; print('OK')"]
+      test: ["CMD-SHELL", "test -d /proc/1"]
       interval: 5m
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 30s
     

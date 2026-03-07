@@ -891,7 +891,98 @@ class OllamaLLM:
                     logger.error(f"Ollama API failed after {max_retries} attempts")
         
         return None
-    
+
+    def should_notify(self, video_data: dict) -> bool:
+        """
+        Use AI to determine if this video is worth notifying about.
+        Can filter out spam, low-quality, or off-topic content.
+        
+        Args:
+            video_data: Video information dict
+            
+        Returns:
+            True if should notify, False if should skip
+        """
+        if not self.enabled or not self.ollama_client:
+            return True
+        
+        # Check if filtering is enabled
+        if not get_bool_config('LLM', 'enable_filtering', default=False):
+            return True
+        
+        try:
+            title = video_data.get('title', '')
+            description = video_data.get('description', '')
+            
+            filter_keywords = get_config('LLM', 'filter_keywords', default='')
+            
+            prompt = f"""Determine if this video should trigger a notification based on quality and relevance.
+
+Title: {title}
+Description: {description[:300]}
+
+Filter out:
+- Spam or clickbait
+- Low-quality content
+- Off-topic videos
+{f'- Content containing: {filter_keywords}' if filter_keywords else ''}
+
+Return ONLY "yes" or "no"."""
+
+            decision = self._generate_with_retry(prompt)
+            if not decision:
+                logger.warning("Failed to get LLM filtering decision, defaulting to notify")
+                return True
+            
+            decision = decision.lower()
+            should_notify = 'yes' in decision
+            
+            if not should_notify:
+                logger.info(f"\U0001f6ab LLM filtered out video: {title[:50]}...")
+            
+            return should_notify
+            
+        except Exception as e:
+            logger.error("Error in LLM filtering")
+            return True
+
+    def generate_hashtags(self, video_data: dict, max_tags: int = 5) -> Optional[str]:
+        """
+        Generate relevant hashtags for the video.
+        
+        Args:
+            video_data: Video information dict
+            max_tags: Maximum number of hashtags to generate
+            
+        Returns:
+            Space-separated hashtags or None on error
+        """
+        if not self.enabled or not self.ollama_client:
+            return None
+        
+        try:
+            title = video_data.get('title', '')
+            description = video_data.get('description', '')
+            
+            prompt = f"""Generate {max_tags} relevant, popular hashtags for this video. Return ONLY the hashtags separated by spaces, with # prefix.
+
+Title: {title}
+Description: {description[:300]}
+
+Example format: #Tech #Gaming #Tutorial #AI #Programming"""
+
+            hashtags = self._generate_with_retry(prompt)
+            
+            if hashtags:
+                logger.debug(f"Generated hashtags: {hashtags}")
+                return hashtags
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Error generating hashtags")
+            return None
+
     def generate_notification(self, video_data: dict, platform_name: str, social_platform: str) -> Optional[str]:
         """
         Generate a platform-specific notification message.

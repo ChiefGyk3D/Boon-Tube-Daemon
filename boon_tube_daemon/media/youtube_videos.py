@@ -17,7 +17,7 @@ from typing import Optional, Tuple
 
 from googleapiclient.discovery import build
 
-from boon_tube_daemon.utils.config import get_config, get_secret
+from boon_tube_daemon.utils.config import get_config, get_int_config, get_secret
 from boon_tube_daemon.media.base import MediaPlatform
 
 logger = logging.getLogger(__name__)
@@ -30,8 +30,8 @@ STATE_FILENAME = "youtube_state.json"
 class YouTubeVideosPlatform(MediaPlatform):
     """YouTube platform for monitoring new video uploads."""
     
-    # Time window for "recent" videos that should be posted even on re-initialization
-    RECENT_VIDEO_WINDOW = timedelta(hours=2)
+    # Default: 0 = off (don't post on first run). Set YOUTUBE_RECENT_VIDEO_HOURS to enable.
+    DEFAULT_RECENT_VIDEO_HOURS = 0
     
     def __init__(self):
         super().__init__("YouTube-Videos")
@@ -44,6 +44,8 @@ class YouTubeVideosPlatform(MediaPlatform):
         self.max_consecutive_errors = 5
         self.last_video_id = None
         self._state_file_path = None
+        self.recent_video_hours = self.DEFAULT_RECENT_VIDEO_HOURS
+        self.recent_video_window = timedelta(hours=self.recent_video_hours)
         
     def _get_state_file_path(self) -> Path:
         """Get the path to the state file, creating directory if needed."""
@@ -123,9 +125,17 @@ class YouTubeVideosPlatform(MediaPlatform):
                 else:
                     logger.info("📂 State file is for different channel, starting fresh")
             
+            # Configure recent video window (for first-run / restart catch-up)
+            self.recent_video_hours = get_int_config('YouTube', 'recent_video_hours', default=self.DEFAULT_RECENT_VIDEO_HOURS)
+            self.recent_video_window = timedelta(hours=self.recent_video_hours)
+            
             self.enabled = True
             self.consecutive_errors = 0
             logger.info(f"✓ YouTube Videos authenticated for channel: {self.channel_id}")
+            if self.recent_video_hours > 0:
+                logger.info(f"⏰ Recent video window: {self.recent_video_hours}h (post on first run if within this window)")
+            else:
+                logger.info("⏰ Recent video window: disabled (won't post on first run)")
             return True
             
         except Exception as e:
@@ -319,15 +329,14 @@ class YouTubeVideosPlatform(MediaPlatform):
         
         # Check if this is a new video
         if self.last_video_id is None:
-            # First run or state was lost - check if video is recent enough to post
-            is_recent = False
-            if published_at:
-                # Make sure we're comparing timezone-aware datetimes
+            # First run or state was lost
+            if self.recent_video_hours > 0 and published_at:
+                # Check if video is recent enough to post (catch-up after restart)
                 now = datetime.now(timezone.utc)
                 if published_at.tzinfo is None:
                     published_at = published_at.replace(tzinfo=timezone.utc)
                 time_since_published = now - published_at
-                is_recent = time_since_published < self.RECENT_VIDEO_WINDOW
+                is_recent = time_since_published < self.recent_video_window
                 
                 if is_recent:
                     logger.info(f"📹 YouTube: First check - found recent video (published {time_since_published.total_seconds() / 60:.0f} min ago)")
@@ -335,9 +344,10 @@ class YouTubeVideosPlatform(MediaPlatform):
                     self.last_video_id = current_video_id
                     self._save_state()
                     return True, video_data
-            
-            # Not recent enough, just initialize tracking
-            logger.info(f"📹 YouTube: Initialized tracking for channel (video published {time_since_published.total_seconds() / 3600:.1f}h ago)" if published_at else "📹 YouTube: Initialized tracking for channel")
+                
+                logger.info(f"📹 YouTube: Initialized tracking for channel (video published {time_since_published.total_seconds() / 3600:.1f}h ago)")
+            else:
+                logger.info("📹 YouTube: Initialized tracking for channel (recent video window disabled)" if self.recent_video_hours <= 0 else "📹 YouTube: Initialized tracking for channel")
             self.last_video_id = current_video_id
             self._save_state()
             return False, None
