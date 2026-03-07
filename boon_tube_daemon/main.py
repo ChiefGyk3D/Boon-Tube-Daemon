@@ -174,6 +174,7 @@ class BoonTubeDaemon:
                     
             except Exception as e:
                 logger.error(f"Error checking {platform.name}")
+                logger.exception("Detailed traceback:")
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
