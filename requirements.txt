@@ -11,7 +11,7 @@
 # - colorlog: Using standard logging
 
 # Core dependencies
-requests==2.32.5
+requests==2.33.0
 python-dateutil==2.9.0.post0
 
 # YouTube API
