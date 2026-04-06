@@ -13,6 +13,7 @@ import logging
 import time
 import signal
 import sys
+import re
 from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
@@ -164,13 +165,25 @@ class BoonTubeDaemon:
     
     def check_platforms(self):
         """Check all media platforms for new content."""
+        # Configurable delay between posting multiple videos (seconds)
+        multi_video_delay = get_int_config('Settings', 'multi_video_delay', default=120)
+        
         for platform in self.media_platforms:
             try:
-                # Check for new video
-                is_new, video_data = platform.check_for_new_video()
-                
-                if is_new and video_data:
-                    self.notify_new_video(platform, video_data)
+                # Use multi-video method if available (YouTube), fall back to single
+                if hasattr(platform, 'check_for_new_videos'):
+                    new_videos = platform.check_for_new_videos()
+                    for idx, video_data in enumerate(new_videos):
+                        # Stagger posts if multiple new videos detected
+                        if idx > 0 and multi_video_delay > 0:
+                            logger.info(f"   ⏱ Waiting {multi_video_delay}s before posting next video...")
+                            time.sleep(multi_video_delay)
+                        self.notify_new_video(platform, video_data)
+                else:
+                    # Legacy single-video path (TikTok etc.)
+                    is_new, video_data = platform.check_for_new_video()
+                    if is_new and video_data:
+                        self.notify_new_video(platform, video_data)
                     
             except Exception as e:
                 logger.error(f"Error checking {platform.name}")
@@ -281,6 +294,35 @@ class BoonTubeDaemon:
         
         return message
     
+    def post_video_by_id(self, video_id: str):
+        """
+        One-off: fetch a specific YouTube video by ID and post it to all social platforms.
+        
+        Args:
+            video_id: YouTube video ID (e.g. 'dFzv3XCiio8')
+        """
+        # Find the YouTube platform
+        youtube = None
+        for platform in self.media_platforms:
+            if isinstance(platform, YouTubeVideosPlatform):
+                youtube = platform
+                break
+        
+        if not youtube:
+            logger.error("❌ No YouTube platform configured")
+            return False
+        
+        logger.info(f"\n🎯 Manual post requested for video ID: {video_id}")
+        success, video_data = youtube.get_video_by_id(video_id)
+        
+        if not success or not video_data:
+            logger.error(f"❌ Could not fetch video: {video_id}")
+            return False
+        
+        self.notify_new_video(youtube, video_data)
+        logger.info(f"✅ Manual post complete for: {video_data.get('title')}")
+        return True
+
     def run(self):
         """Main daemon loop."""
         self.running = True
@@ -328,11 +370,31 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
+    # Parse --post-video argument for one-off posting
+    video_id = None
+    for i, arg in enumerate(sys.argv[1:], 1):
+        if arg == '--post-video' and i < len(sys.argv) - 1:
+            raw = sys.argv[i + 1]
+            # Accept full URLs or bare video IDs
+            m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', raw)
+            video_id = m.group(1) if m else raw
+            break
+        if arg.startswith('--post-video='):
+            raw = arg.split('=', 1)[1]
+            m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', raw)
+            video_id = m.group(1) if m else raw
+            break
+    
     # Create and run daemon
     daemon = BoonTubeDaemon()
     
     if daemon.initialize():
-        daemon.run()
+        if video_id:
+            # One-off mode: post a specific video then exit
+            success = daemon.post_video_by_id(video_id)
+            sys.exit(0 if success else 1)
+        else:
+            daemon.run()
     else:
         logger.error("❌ Failed to initialize daemon")
         sys.exit(1)
