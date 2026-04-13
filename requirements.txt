@@ -21,7 +21,7 @@ google-api-python-client==2.193.0
 playwright==1.58.0
 
 # Social Media Platforms
-Mastodon.py==2.1.4
+Mastodon.py==2.2.1
 atproto==0.0.65  # Bluesky AT Protocol
 
 # Text Processing
