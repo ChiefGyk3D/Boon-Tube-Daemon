@@ -19,7 +19,7 @@ atproto==0.0.65  # Bluesky AT Protocol
 grapheme==0.6.0  # Unicode grapheme cluster counting (for Bluesky 300-grapheme limit)
 
 # Security: Pin protobuf to 5.x for compatibility with google-api-python-client
-protobuf>=5.29.6,<8.0.0
+protobuf>=7.34.1,<8.0.0
 
 # Configuration
 python-dotenv==1.2.2
