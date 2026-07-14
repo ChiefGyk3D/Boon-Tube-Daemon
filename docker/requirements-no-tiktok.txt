@@ -6,27 +6,27 @@ requests==2.33.1
 python-dateutil==2.9.0.post0
 
 # YouTube API
-google-api-python-client==2.193.0
-google-auth==2.49.1
+google-api-python-client==2.196.0
+google-auth==2.52.0
 google-auth-oauthlib==1.3.1
-google-auth-httplib2==0.3.1
+google-auth-httplib2==0.4.0
 
 # Social Media Platforms
-Mastodon.py==2.1.4
+Mastodon.py==2.2.1
 atproto==0.0.65  # Bluesky AT Protocol
 
 # Text Processing
 grapheme==0.6.0  # Unicode grapheme cluster counting (for Bluesky 300-grapheme limit)
 
 # Security: Pin protobuf to 5.x for compatibility with google-api-python-client
-protobuf>=5.29.6,<8.0.0
+protobuf>=7.34.1,<8.0.0
 
 # Configuration
 python-dotenv==1.2.2
 
 # LLM Integration
-google-genai>=1.65.0  # Google Gemini API (replaces deprecated google-generativeai)
-ollama==0.6.1  # Ollama local LLM (optional, for privacy-first AI)
+google-genai>=2.0.1  # Google Gemini API (replaces deprecated google-generativeai)
+ollama==0.6.2  # Ollama local LLM (optional, for privacy-first AI)
 
 # Secret Management (optional)
 doppler-sdk==1.3.0  # Doppler SDK for Python
@@ -34,6 +34,6 @@ doppler-sdk==1.3.0  # Doppler SDK for Python
 # Development/Testing (for CI/CD)
 pytest>=8.0.0
 pytest-cov>=4.1.0
-ruff>=0.1.0
+ruff>=0.15.12
 bandit>=1.7.0
 safety>=3.0.0
