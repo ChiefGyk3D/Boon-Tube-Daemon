@@ -179,6 +179,11 @@ class BoonTubeDaemon:
                             logger.info(f"   ⏱ Waiting {multi_video_delay}s before posting next video...")
                             time.sleep(multi_video_delay)
                         self.notify_new_video(platform, video_data)
+                        # Persist progress after each video so an interrupted batch
+                        # resumes from the next unposted video instead of skipping
+                        # the remainder if the process is killed mid-batch.
+                        if hasattr(platform, 'mark_posted'):
+                            platform.mark_posted(video_data)
                 else:
                     # Legacy single-video path (TikTok etc.)
                     is_new, video_data = platform.check_for_new_video()
