@@ -90,6 +90,18 @@ class YouTubeVideosPlatform(MediaPlatform):
             logger.debug(f"💾 Saved YouTube state to {state_file}")
         except Exception as e:
             logger.warning("⚠ Could not save YouTube state")
+
+    def mark_posted(self, video_data: dict):
+        """Advance and persist the last-posted marker after a video is posted.
+
+        Called by the daemon after each video is successfully handled so that an
+        interrupted batch resumes from the next unposted video rather than
+        silently skipping the remainder.
+        """
+        video_id = video_data.get('video_id')
+        if video_id:
+            self.last_video_id = video_id
+            self._save_state()
         
     def authenticate(self) -> bool:
         """Authenticate with YouTube API."""
@@ -444,9 +456,10 @@ class YouTubeVideosPlatform(MediaPlatform):
         if len(new_videos) > 1:
             logger.info(f"📦 YouTube: {len(new_videos)} new videos detected since last check")
         
-        # Update state to newest
-        self.last_video_id = newest_id
-        self._save_state()
+        # NOTE: Do NOT advance last_video_id here. State is advanced per-video via
+        # mark_posted() after each video is successfully posted, so an interrupted
+        # batch (e.g. container restart) resumes from the next unposted video
+        # instead of silently skipping the remainder.
         return new_videos
     
     def _resolve_channel_id(self, username: str) -> Optional[str]:
