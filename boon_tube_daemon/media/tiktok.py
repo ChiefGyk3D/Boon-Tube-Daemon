@@ -55,7 +55,7 @@ class TikTokPlatform(MediaPlatform):
             logger.info(f"✓ TikTok monitoring configured for @{self.username}")
             return True
             
-        except Exception as e:
+        except Exception:
             logger.error("✗ TikTok authentication failed")
             self.enabled = False
             return False
@@ -185,7 +185,7 @@ class TikTokPlatform(MediaPlatform):
         except PlaywrightTimeout:
             logger.error(f"✗ Timeout loading TikTok page for @{username}")
             return None
-        except Exception as e:
+        except Exception:
             logger.error("✗ Error fetching TikTok videos")
             return None
     
@@ -219,7 +219,7 @@ class TikTokPlatform(MediaPlatform):
                 return False, None
             finally:
                 loop.close()
-        except Exception as e:
+        except Exception:
             logger.error("Error in get_latest_video")
             return False, None
     
@@ -265,5 +265,5 @@ class TikTokPlatform(MediaPlatform):
                 loop.run_until_complete(self._cleanup_browser())
             finally:
                 loop.close()
-        except Exception as e:
+        except Exception:
             logger.error("Error during cleanup")

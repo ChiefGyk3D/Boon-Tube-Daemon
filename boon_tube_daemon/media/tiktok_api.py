@@ -13,7 +13,7 @@ API Documentation: https://developers.tiktok.com/doc/login-kit-web
 import logging
 import requests
 from datetime import datetime, timezone
-from typing import Optional, Dict, Tuple
+from typing import Optional, Tuple
 from boon_tube_daemon.media.base import MediaPlatform
 from boon_tube_daemon.utils.config import get_config, get_secret
 
@@ -61,7 +61,7 @@ class TikTokAPIPlatform(MediaPlatform):
             logger.info(f"✓ TikTok API configured for @{self.username}")
             return True
             
-        except Exception as e:
+        except Exception:
             logger.error("✗ TikTok API authentication failed")
             self.enabled = False
             return False
@@ -158,10 +158,10 @@ class TikTokAPIPlatform(MediaPlatform):
             logger.debug(f"✓ Found video: {video_info['title'][:50]}")
             return True, video_info
             
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             logger.error("TikTok API request failed")
             return False, None
-        except Exception as e:
+        except Exception:
             logger.error("Error getting TikTok video")
             return False, None
     
