@@ -3,14 +3,20 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
-LLM integration module for Boon-Tube-Daemon.
+LLM integration for Boon-Tube-Daemon, built on hypeman-social.
 
-Integrates Google Gemini Flash 2.0 Lite for intelligent content analysis,
-summary generation, and enhanced notifications.
+VideoPostGenerator is the class the daemon uses: it follows LLM_PROVIDER
+config, supports LLM_FALLBACK_PROVIDER failover, and knows what a video
+announcement should look like. OllamaLLM and GeminiLLM remain as pinned
+compatibility wrappers.
 """
 
 from boon_tube_daemon.llm.gemini import GeminiLLM
+from boon_tube_daemon.llm.generator import VideoPostGenerator
+from boon_tube_daemon.llm.ollama import OllamaLLM
 
 __all__ = [
+    'VideoPostGenerator',
     'GeminiLLM',
+    'OllamaLLM',
 ]

@@ -72,7 +72,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                     state = json.load(f)
                     logger.debug(f"📂 Loaded YouTube state from {state_file}")
                     return state
-        except Exception as e:
+        except Exception:
             logger.warning("⚠ Could not load YouTube state")
         return {}
     
@@ -88,7 +88,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             with open(state_file, 'w') as f:
                 json.dump(state, f, indent=2)
             logger.debug(f"💾 Saved YouTube state to {state_file}")
-        except Exception as e:
+        except Exception:
             logger.warning("⚠ Could not save YouTube state")
 
     def mark_posted(self, video_data: dict):
@@ -150,7 +150,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                 logger.info("⏰ Recent video window: disabled (won't post on first run)")
             return True
             
-        except Exception as e:
+        except Exception:
             logger.error("✗ YouTube authentication failed")
             self.enabled = False
             return False
@@ -191,7 +191,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             
             return None
             
-        except Exception as e:
+        except Exception:
             logger.error("Error resolving YouTube channel ID")
             return None
     
@@ -363,7 +363,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.consecutive_errors = 0
             return True, video_info
             
-        except Exception as e:
+        except Exception:
             self.consecutive_errors += 1
             logger.error(f"⚠ Error fetching video {video_id}")
             return False, None
@@ -485,6 +485,6 @@ class YouTubeVideosPlatform(MediaPlatform):
                     return response['items'][0]['id']
             
             return None
-        except Exception as e:
+        except Exception:
             logger.warning(f"Error resolving YouTube channel ID for {username}")
             return None

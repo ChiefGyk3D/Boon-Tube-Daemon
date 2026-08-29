@@ -20,12 +20,11 @@ from datetime import datetime
 
 from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
-from boon_tube_daemon.social.discord import DiscordPlatform
+from boon_tube_daemon.social.discord import DiscordPlatform, EVENT_UPLOAD
 from boon_tube_daemon.social.matrix import MatrixPlatform
 from boon_tube_daemon.social.bluesky import BlueskyPlatform
 from boon_tube_daemon.social.mastodon import MastodonPlatform
-from boon_tube_daemon.llm.gemini import GeminiLLM
-from boon_tube_daemon.llm.ollama import OllamaLLM
+from boon_tube_daemon.llm.generator import VideoPostGenerator
 
 # TikTok support is optional (requires Playwright)
 try:
@@ -103,37 +102,28 @@ class BoonTubeDaemon:
         
         logger.info(f"✓ {len(self.media_platforms)} media platform(s) enabled")
         
-        # Initialize LLM (optional)
+        # Initialize LLM (optional).
+        #
+        # VideoPostGenerator (backed by hypeman-social's LLMManager) reads
+        # LLM_ENABLE and LLM_PROVIDER itself, keeps retrying a downed provider
+        # in the background, and fails over to LLM_FALLBACK_PROVIDER when one
+        # is configured. A provider that's down at startup is no longer fatal:
+        # posts use the template fallback until it recovers.
         logger.info("\n🤖 Initializing LLM...")
-        if get_bool_config('LLM', 'enable', default=False):
-            # Determine provider
-            provider = get_config('LLM', 'provider', default='gemini').lower()
-            
-            if provider == 'ollama':
-                self.llm = OllamaLLM()
-                if self.llm.authenticate():
-                    logger.info("✓ Ollama LLM enabled")
-                else:
-                    logger.warning("  ⚠ Ollama LLM initialization failed")
-                    self.llm = None
-            elif provider == 'gemini':
-                self.llm = GeminiLLM()
-                if self.llm.authenticate():
-                    logger.info("✓ Gemini LLM enabled")
-                else:
-                    logger.warning("  ⚠ Gemini LLM initialization failed")
-                    self.llm = None
-            else:
-                logger.error("  ✗ Unknown LLM provider configured")
-                self.llm = None
+        self.llm = VideoPostGenerator()
+        if self.llm.authenticate():
+            logger.info("✓ LLM ready")
         else:
             logger.info("  ⊘ LLM disabled")
+            self.llm = None
         
         # Initialize social platforms
         logger.info("\n📢 Initializing Social Platforms...")
         
         if get_bool_config('Discord', 'enable_posting', default=False):
-            discord = DiscordPlatform()
+            # Boon-Tube announces uploads, so embeds default to the
+            # "New Video" style rather than "Live".
+            discord = DiscordPlatform(default_event_kind=EVENT_UPLOAD)
             if discord.authenticate():
                 self.social_platforms.append(discord)
         
@@ -190,12 +180,16 @@ class BoonTubeDaemon:
                     if is_new and video_data:
                         self.notify_new_video(platform, video_data)
                     
-            except Exception as e:
+            except Exception:
                 logger.error(f"Error checking {platform.name}")
                 logger.exception("Detailed traceback:")
     
     def notify_new_video(self, platform, video_data: Dict):
         """Send notifications about new video to all social platforms."""
+        # Tell every social platform explicitly that this is an upload, not a
+        # live broadcast — "youtube" alone is ambiguous between the two.
+        video_data.setdefault('event_kind', EVENT_UPLOAD)
+
         logger.info("\n🎉 NEW VIDEO DETECTED!")
         logger.info(f"   Platform: {platform.name}")
         logger.info(f"   Title: {video_data.get('title')}")
@@ -236,7 +230,7 @@ class BoonTubeDaemon:
                     logger.info(f"   ✓ Posted to {social.name}")
                 else:
                     logger.warning(f"   ✗ Failed to post to {social.name}")
-            except Exception as e:
+            except Exception:
                 logger.error(f"   ✗ Error posting to {social.name}")
                 logger.exception("Detailed traceback:")
                 # Continue to next platform even on error
@@ -272,7 +266,7 @@ class BoonTubeDaemon:
                         return enhanced_message
                     else:
                         logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
-                except Exception as e:
+                except Exception:
                     logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}")
                     logger.debug("Falling back to template-based notification")
         
@@ -352,7 +346,7 @@ class BoonTubeDaemon:
                 logger.info("\n⏹ Received shutdown signal...")
                 self.stop()
                 break
-            except Exception as e:
+            except Exception:
                 logger.error("Error in main loop")
                 # Continue running even if there's an error
                 continue
