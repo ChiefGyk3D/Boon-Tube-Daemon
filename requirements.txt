@@ -15,7 +15,7 @@
 # The [all] extra pulls atproto, grapheme, Mastodon.py, ollama, google-genai,
 # beautifulsoup4; [doppler] pulls the Doppler SDK.
 # TODO: switch to `hypeman-social[all,doppler]>=0.1.0` once it's on PyPI.
-hypeman-social[all,doppler] @ https://github.com/ChiefGyk3D/hypeman/archive/126c28b5da4901e8ca102955193b71652ec9d348.tar.gz
+hypeman-social[all,doppler] @ https://github.com/ChiefGyk3D/hypeman/archive/f1dd78531c6bff39944e8713210e74b4f897807e.tar.gz
 
 # Core dependencies
 requests==2.33.1
