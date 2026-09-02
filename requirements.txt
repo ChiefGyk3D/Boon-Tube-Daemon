@@ -18,28 +18,28 @@
 hypeman-social[all,doppler] @ https://github.com/ChiefGyk3D/hypeman/archive/f1dd78531c6bff39944e8713210e74b4f897807e.tar.gz
 
 # Core dependencies
-requests==2.33.1
+requests==2.34.2
 python-dateutil==2.9.0.post0
 
 # YouTube API
-google-api-python-client==2.196.0
+google-api-python-client==2.200.0
 
 # TikTok monitoring via Playwright (no TikTokApi package needed)
-playwright==1.59.0
+playwright==1.62.0
 
 # Security: Pin protobuf to 5.x for compatibility with google-api-python-client
 protobuf>=7.34.1,<8.0.0
 
 # Configuration
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 
 # Secret Management (optional extras beyond Doppler)
 # AWS Secrets Manager: hypeman-social[aws]
 # HashiCorp Vault: hypeman-social[vault]
 
 # Development/Testing (for CI/CD)
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==7.1.0
-ruff==0.15.12
+ruff==0.16.5
 bandit==1.9.4
-safety==3.7.0
+safety==3.8.1
