@@ -85,6 +85,23 @@ LLM_PROVIDER=gemini
 GEMINI_API_KEY=your_api_key_here
 LLM_ENHANCE_NOTIFICATIONS=true
 
+# Option 3: Local-first with cloud failover (best of both)
+# Ollama is primary; if the local box goes down, Gemini covers until it
+# recovers — then the daemon switches back automatically. Strictly opt-in.
+LLM_ENABLE=true
+LLM_PROVIDER=ollama
+LLM_OLLAMA_HOST=http://localhost
+LLM_OLLAMA_MODEL=gemma3:4b
+LLM_FALLBACK_PROVIDER=gemini
+LLM_GEMINI_MODEL=gemini-2.0-flash-lite
+GEMINI_API_KEY=your_api_key_here
+LLM_ENHANCE_NOTIFICATIONS=true
+
+# The AI layer, social posting, and config/secrets come from hypeman-social
+# (https://pypi.org/project/hypeman-social/), shared with stream-daemon,
+# Star-Daemon, and yomama-as-a-service. Full key reference:
+# https://github.com/ChiefGyk3D/hypeman/blob/main/docs/CONFIGURATION.md
+
 # 4. Test Ollama (if using)
 python3 tests/test_ollama.py
 
