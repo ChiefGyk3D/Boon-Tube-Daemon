@@ -10,6 +10,7 @@ Main daemon that coordinates monitoring and notifications.
 """
 
 import logging
+import os
 import time
 import signal
 import sys
@@ -17,6 +18,8 @@ import re
 from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
+
+from hypeman_social.observability import HealthState, start_health_server
 
 from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
 from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
@@ -54,6 +57,8 @@ class BoonTubeDaemon:
         self.social_platforms: List = []
         self.llm = None
         self.check_interval = 900  # Default: 15 minutes (optimized for video uploads, not livestreams)
+        self.health = HealthState('boon-tube-daemon')
+        self._health_server = None
         
     def initialize(self):
         """Initialize daemon and all platforms."""
@@ -147,6 +152,19 @@ class BoonTubeDaemon:
         else:
             logger.info(f"✓ {len(self.social_platforms)} social platform(s) enabled")
         
+        # Health endpoint (optional): /healthz and /status on 127.0.0.1.
+        # A downed LLM shows as degraded, not unhealthy — template posts still
+        # go out, and a health check that cries wolf gets ignored.
+        for social in self.social_platforms:
+            self.health.set_component(social.name, True)
+        for media in self.media_platforms:
+            self.health.set_component(media.name, True)
+        if self.llm is not None:
+            self.health.register('llm', self.llm.status)
+        health_port = int(os.getenv('HEALTH_PORT', '0') or 0)
+        if health_port:
+            self._health_server = start_health_server(self.health, health_port)
+
         logger.info("\n" + "="*60)
         logger.info("✅ Boon-Tube-Daemon Initialized Successfully!")
         logger.info("="*60 + "\n")
@@ -155,6 +173,7 @@ class BoonTubeDaemon:
     
     def check_platforms(self):
         """Check all media platforms for new content."""
+        self.health.record_event('last_check')
         # Configurable delay between posting multiple videos (seconds)
         multi_video_delay = get_int_config('Settings', 'multi_video_delay', default=120)
         
@@ -228,8 +247,10 @@ class BoonTubeDaemon:
                 )
                 if result:
                     logger.info(f"   ✓ Posted to {social.name}")
+                    self.health.record_event('last_post', video_data.get('title'))
                 else:
                     logger.warning(f"   ✗ Failed to post to {social.name}")
+                self.health.set_component(social.name, bool(result))
             except Exception:
                 logger.error(f"   ✗ Error posting to {social.name}")
                 logger.exception("Detailed traceback:")

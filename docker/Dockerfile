@@ -54,10 +54,12 @@ VOLUME ["/app/config"]
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Health check — verify PID 1 (main process) is alive
-# Note: pgrep is not available in python:slim images, use shell builtins
+# Health check: probe the daemon's /healthz endpoint (hypeman-social
+# observability) when HEALTH_PORT is set; otherwise fall back to verifying
+# PID 1 is alive so the check passes for deployments that keep health off.
+# Uses python urllib because slim images ship neither curl nor pgrep.
 HEALTHCHECK --interval=5m --timeout=5s --start-period=60s --retries=3 \
-  CMD test -d /proc/1
+  CMD ["python", "-c", "import os,sys,urllib.request;port=os.getenv('HEALTH_PORT');urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4) if port else sys.exit(0 if os.path.isdir('/proc/1') else 1)"]
 
 # Run the daemon
 CMD ["python", "-u", "main.py"]
