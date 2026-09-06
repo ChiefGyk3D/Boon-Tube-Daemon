@@ -205,6 +205,24 @@ MASTODON_POST_STYLE=detailed
 **Bluesky**: Conversational, concise (300 char limit)
 **Mastodon**: Detailed analysis with hashtags (500 char limit)
 
+### Health Endpoint
+
+Set `HEALTH_PORT` to expose the daemon's health over HTTP (binds to
+`127.0.0.1`), served by [hypeman-social](https://github.com/ChiefGyk3D/hypeman)'s
+observability module:
+
+```env
+HEALTH_PORT=9102
+```
+
+- `GET /healthz` — 200 while every initialized platform is working, 503 when one is broken
+- `GET /status` — full detail: platforms, LLM provider state, last check, last post, uptime
+
+A downed AI server reports as **degraded, not unhealthy** — posts still go
+out with template messages. The Docker image's `HEALTHCHECK` probes
+`/healthz` automatically when `HEALTH_PORT` is set (and falls back to a
+process-liveness check when it isn't).
+
 ## 📋 Requirements
 
 ### Core
