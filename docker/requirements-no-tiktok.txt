@@ -25,7 +25,7 @@ protobuf>=7.34.1,<8.0.0
 python-dotenv==1.2.2
 
 # LLM Integration
-google-genai>=2.0.1  # Google Gemini API (replaces deprecated google-generativeai)
+google-genai>=2.22.0  # Google Gemini API (replaces deprecated google-generativeai)
 ollama==0.6.2  # Ollama local LLM (optional, for privacy-first AI)
 
 # Secret Management (optional)
