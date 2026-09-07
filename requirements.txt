@@ -27,7 +27,7 @@ google-api-python-client==2.200.0
 playwright==1.62.0
 
 # Security: Pin protobuf to 5.x for compatibility with google-api-python-client
-protobuf>=7.34.1,<8.0.0
+protobuf>=7.36.1,<8.0.0
 
 # Configuration
 python-dotenv==1.2.3
