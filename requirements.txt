@@ -14,7 +14,7 @@
 # generation (Ollama/Gemini with failover + guardrails), config/secrets.
 # The [all] extra pulls atproto, grapheme, Mastodon.py, ollama, google-genai,
 # beautifulsoup4; [doppler] pulls the Doppler SDK.
-hypeman-social[all,doppler]>=0.1.0,<0.2
+hypeman-social[all,doppler]>=0.2.0,<0.3
 
 # Core dependencies
 requests==2.34.2
