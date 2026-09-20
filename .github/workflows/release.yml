@@ -1,0 +1,40 @@
+# Container release: build and test on every pull request; on main and on a
+# version tag, publish a multi-arch (amd64 + arm64) image to GHCR, signed with
+# cosign, with a syft SBOM and build provenance attached. GHCR only; no Docker
+# Hub. The jobs live in ChiefGyk3D/git-your-ship-together.
+#
+# The arm64 leg compiles SQLite from source (CVE-2025-7709) under QEMU and
+# installs every dependency twice, so the timeout is generous.
+#
+# Image: ghcr.io/chiefgyk3d/boon-tube-daemon
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-docker-release.yml@main
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    secrets: inherit
+    with:
+      dockerfile: docker/Dockerfile
+      push: ${{ github.event_name != 'pull_request' }}
+      docker-test-command: docker run --rm "$IMAGE" python -c "import boon_tube_daemon; print('Import successful')"
+      timeout-minutes: 90
+      doppler-project: boon-tube-daemon
+      doppler-config: ci
+      doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
