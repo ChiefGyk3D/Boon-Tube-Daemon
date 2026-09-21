@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@f6538c8277d5b02b1c8c8f817dc354c0faaa4622 # v1.2.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@5d494e4e2410ca86e32c2171d6bba59fc32f1be6 # v1.3.0
     permissions:
       contents: read
       id-token: write   # Doppler OIDC: CODECOV_TOKEN
@@ -31,7 +31,7 @@ jobs:
       lint-python-version: "3.14"
       install-command: |
         python -m pip install --upgrade "pip>=25.3"
-        pip install -r requirements.txt
+        pip install --require-hashes -r requirements.txt
       test-command: pytest tests/ -v --cov=boon_tube_daemon --cov-report=xml --cov-report=term
       codecov: true
       lint-command: ruff check boon_tube_daemon/ main.py --output-format=github

@@ -40,7 +40,7 @@ COPY requirements.txt /app/requirements.txt
 # Install Python dependencies
 # Upgrade pip to 25.3+ to fix CVE-2025-8869 (symbolic link extraction vulnerability)
 RUN pip install --no-cache-dir --upgrade "pip>=25.3" && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Drop pip from the runtime image once the dependencies are in place. Nothing
 # runs pip after this point, and pip vendors its own copies of msgpack
