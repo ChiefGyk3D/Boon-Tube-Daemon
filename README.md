@@ -327,8 +327,8 @@ Contributions are welcome! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guide
 
 ### Development Setup
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (the dev lock includes the runtime one)
+pip install -r requirements-dev.txt
 
 # Run tests
 cd tests
@@ -351,13 +351,13 @@ add or bump a dependency, edit `requirements.in` and regenerate the lock with
 the command in its header; never edit `requirements.txt` by hand. Dependabot
 regenerates it for version bumps.
 
-The runtime requirements also carry the scan tools (`safety`, `bandit`) and
-the test tools; moving them into a dev lock of their own is on the shared
-[roadmap](https://github.com/ChiefGyk3D/git-your-ship-together/blob/main/docs/ROADMAP.md).
-Until then one advisory in `safety`'s dependency `nltk`, which nothing here
-calls and which has no fixed release, is a named exception in the shared
-[risk register](https://github.com/ChiefGyk3D/git-your-ship-together/blob/main/baseline/risk-register.yaml),
-reviewed quarterly.
+The scan and test tools (`pytest`, `pytest-cov`, `ruff`, `bandit`, `safety`)
+live in `requirements-dev.in`, which pulls `requirements.in` in and compiles to
+`requirements-dev.txt` the same way. CI installs the dev lock; the Docker image
+installs the runtime lock only, so the image carries neither the scanners nor
+what they drag in with them. That is what keeps `safety`'s dependency `nltk`,
+which nothing here calls, out of the shipped image entirely rather than
+carrying it as a named risk exception.
 
 ## 📜 Legal
 

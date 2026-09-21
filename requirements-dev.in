@@ -1,0 +1,22 @@
+# Development and CI-only dependencies: the test runner and the scanners.
+# They are deliberately kept out of requirements.in so the container image
+# never carries them. requirements-dev.txt is generated from this file with
+# every transitive dependency pinned and hashed; regenerate it after editing
+# here:
+#
+#   pip install uv
+#   uv pip compile requirements-dev.in --universal --generate-hashes --python-version 3.10 -o requirements-dev.txt
+#
+# pip enters hash-checking mode by itself when it reads requirements-dev.txt,
+# so `pip install -r requirements-dev.txt` verifies every download against the
+# lock. This lock is a superset of the runtime lock: it pulls requirements.in
+# in so a development environment matches what the image runs.
+
+-r requirements.in
+
+# Development/Testing (for CI/CD)
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.7
+bandit==1.9.4
+safety==3.8.1
