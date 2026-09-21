@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   security:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@d5d9556afeeb06f78419b91ecb5d146e789c6d51 # v1.0.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@38f1c486833c7f572502b134e950913cc92d044c # v1.1.1
     permissions:
       contents: read
       security-events: write
@@ -33,6 +33,6 @@ jobs:
       # when a fixed nltk ships and the pin moves.
       pip-audit-extra-args: --ignore-vuln PYSEC-2026-3740
       snyk: true
-      doppler-project: boon-tube-daemon
+      doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}

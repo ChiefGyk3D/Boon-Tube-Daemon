@@ -17,6 +17,6 @@ except ImportError:
 
 __all__ = [
     'MediaPlatform',
-    'YouTubeVideosPlatform',
     'TikTokPlatform',
+    'YouTubeVideosPlatform',
 ]

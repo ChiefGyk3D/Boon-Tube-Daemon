@@ -16,8 +16,8 @@ from boon_tube_daemon.social.mastodon import MastodonPlatform
 from boon_tube_daemon.social.matrix import MatrixPlatform
 
 __all__ = [
-    'DiscordPlatform',
-    'MatrixPlatform',
     'BlueskyPlatform',
+    'DiscordPlatform',
     'MastodonPlatform',
+    'MatrixPlatform',
 ]

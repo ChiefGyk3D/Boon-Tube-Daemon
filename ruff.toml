@@ -1,6 +1,10 @@
 # Ruff configuration. The `S` rules are bandit's security checks, so dropping
 # the separate bandit step from CI lost nothing; the tests are exempt from
 # them because assert and hard-coded fixtures are what tests are made of.
+# 3.10 is the oldest interpreter CI tests on, so `X | None` annotations are
+# safe at runtime and the UP rules may modernise to them.
+target-version = "py310"
+
 [lint]
 extend-select = ["S"]
 

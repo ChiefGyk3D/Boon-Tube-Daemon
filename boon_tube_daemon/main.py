@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -11,23 +10,28 @@ Main daemon that coordinates monitoring and notifications.
 
 import logging
 import os
-import time
+import re
 import signal
 import sys
-import re
-from pathlib import Path
-from typing import List, Dict
+import time
 from datetime import datetime
+from pathlib import Path
 
 from hypeman_social.observability import HealthState, start_health_server
 
-from boon_tube_daemon.utils.config import load_config, get_config, get_bool_config, get_int_config, get_float_config
-from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
-from boon_tube_daemon.social.discord import DiscordPlatform, EVENT_UPLOAD
-from boon_tube_daemon.social.matrix import MatrixPlatform
-from boon_tube_daemon.social.bluesky import BlueskyPlatform
-from boon_tube_daemon.social.mastodon import MastodonPlatform
 from boon_tube_daemon.llm.generator import VideoPostGenerator
+from boon_tube_daemon.media.youtube_videos import YouTubeVideosPlatform
+from boon_tube_daemon.social.bluesky import BlueskyPlatform
+from boon_tube_daemon.social.discord import EVENT_UPLOAD, DiscordPlatform
+from boon_tube_daemon.social.mastodon import MastodonPlatform
+from boon_tube_daemon.social.matrix import MatrixPlatform
+from boon_tube_daemon.utils.config import (
+    get_bool_config,
+    get_config,
+    get_float_config,
+    get_int_config,
+    load_config,
+)
 
 # TikTok support is optional (requires Playwright)
 try:
@@ -53,8 +57,8 @@ class BoonTubeDaemon:
     
     def __init__(self):
         self.running = False
-        self.media_platforms: List = []
-        self.social_platforms: List = []
+        self.media_platforms: list = []
+        self.social_platforms: list = []
         self.llm = None
         self.check_interval = 900  # Default: 15 minutes (optimized for video uploads, not livestreams)
         self.health = HealthState('boon-tube-daemon')
@@ -67,8 +71,8 @@ class BoonTubeDaemon:
             banner_path = Path(__file__).parent.parent / "docs" / "BANNER.txt"
             if banner_path.exists():
                 print(banner_path.read_text())
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001  # the banner is cosmetic; never block startup on it
+            logger.debug("Banner not shown")
         
         logger.info("="*60)
         logger.info("🚀 Boon-Tube-Daemon Starting...")
@@ -203,7 +207,7 @@ class BoonTubeDaemon:
                 logger.error(f"Error checking {platform.name}")
                 logger.exception("Detailed traceback:")
     
-    def notify_new_video(self, platform, video_data: Dict):
+    def notify_new_video(self, platform, video_data: dict):
         """Send notifications about new video to all social platforms."""
         # Tell every social platform explicitly that this is an upload, not a
         # live broadcast — "youtube" alone is ambiguous between the two.
@@ -215,10 +219,9 @@ class BoonTubeDaemon:
         logger.info(f"   URL: {video_data.get('url')}")
         
         # Use LLM to filter if enabled
-        if self.llm and self.llm.enabled:
-            if not self.llm.should_notify(video_data):
-                logger.info("   🚫 Skipped by LLM filter")
-                return
+        if self.llm and self.llm.enabled and not self.llm.should_notify(video_data):
+            logger.info("   🚫 Skipped by LLM filter")
+            return
         
         # Get platform delay for request spacing (prevents rate limit hammering)
         platform_delay = get_float_config('LLM', 'platform_delay', default=2.0)
@@ -256,7 +259,7 @@ class BoonTubeDaemon:
                 logger.exception("Detailed traceback:")
                 # Continue to next platform even on error
     
-    def format_notification(self, platform, video_data: Dict, social_platform_name: str = None) -> str:
+    def format_notification(self, platform, video_data: dict, social_platform_name: str | None = None) -> str:
         """
         Format notification message for social platforms.
         Each platform gets a unique, tailored message if LLM is enabled.
@@ -273,23 +276,27 @@ class BoonTubeDaemon:
         url = video_data.get('url', '')
         
         # Try LLM-enhanced notification (platform-specific)
-        if self.llm and self.llm.enabled and get_bool_config('LLM', 'enhance_notifications', default=False):
-            if social_platform_name:
-                try:
-                    # Use unified generate_notification interface (works for both Ollama and Gemini)
-                    enhanced_message = self.llm.generate_notification(
-                        video_data, 
-                        platform.name,
-                        social_platform_name
-                    )
-                    if enhanced_message:
-                        logger.info(f"   ✨ Using LLM-enhanced {social_platform_name} post")
-                        return enhanced_message
-                    else:
-                        logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
-                except Exception:
-                    logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}")
-                    logger.debug("Falling back to template-based notification")
+        if (
+            self.llm
+            and self.llm.enabled
+            and get_bool_config('LLM', 'enhance_notifications', default=False)
+            and social_platform_name
+        ):
+            try:
+                # Use unified generate_notification interface (works for both Ollama and Gemini)
+                enhanced_message = self.llm.generate_notification(
+                    video_data, 
+                    platform.name,
+                    social_platform_name
+                )
+                if enhanced_message:
+                    logger.info(f"   ✨ Using LLM-enhanced {social_platform_name} post")
+                    return enhanced_message
+                else:
+                    logger.warning(f"   ⚠ LLM returned empty message for {social_platform_name}, using fallback")
+            except Exception:  # noqa: BLE001  # fall back to the template; the failure is logged
+                logger.error(f"   ✗ LLM enhancement failed for {social_platform_name}")
+                logger.debug("Falling back to template-based notification")
         
         # Fall back to template-based notification
         template = get_config('Settings', 'notification_template', 
@@ -360,14 +367,14 @@ class BoonTubeDaemon:
                 time.sleep(self.check_interval)
                 
                 # Check all platforms
-                logger.info(f"🔍 Checking platforms... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+                logger.info(f"🔍 Checking platforms... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")  # noqa: DTZ005  # local wall-clock for a log line
                 self.check_platforms()
                 
             except KeyboardInterrupt:
                 logger.info("\n⏹ Received shutdown signal...")
                 self.stop()
                 break
-            except Exception:
+            except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
                 logger.error("Error in main loop")
                 # Continue running even if there's an error
                 continue

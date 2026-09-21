@@ -16,7 +16,7 @@ from boon_tube_daemon.llm.generator import VideoPostGenerator
 from boon_tube_daemon.llm.ollama import OllamaLLM
 
 __all__ = [
-    'VideoPostGenerator',
     'GeminiLLM',
     'OllamaLLM',
+    'VideoPostGenerator',
 ]

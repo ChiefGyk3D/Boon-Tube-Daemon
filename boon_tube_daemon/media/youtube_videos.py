@@ -13,12 +13,11 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from googleapiclient.discovery import build
 
-from boon_tube_daemon.utils.config import get_config, get_int_config, get_secret
 from boon_tube_daemon.media.base import MediaPlatform
+from boon_tube_daemon.utils.config import get_config, get_int_config, get_secret
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                     state = json.load(f)
                     logger.debug(f"📂 Loaded YouTube state from {state_file}")
                     return state
-        except Exception:
+        except Exception:  # noqa: BLE001  # a bad state file must not stop startup; it is logged
             logger.warning("⚠ Could not load YouTube state")
         return {}
     
@@ -88,7 +87,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             with open(state_file, 'w') as f:
                 json.dump(state, f, indent=2)
             logger.debug(f"💾 Saved YouTube state to {state_file}")
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.warning("⚠ Could not save YouTube state")
 
     def mark_posted(self, video_data: dict):
@@ -150,12 +149,12 @@ class YouTubeVideosPlatform(MediaPlatform):
                 logger.info("⏰ Recent video window: disabled (won't post on first run)")
             return True
             
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("✗ YouTube authentication failed")
             self.enabled = False
             return False
     
-    def _get_channel_id_from_username(self) -> Optional[str]:
+    def _get_channel_id_from_username(self) -> str | None:
         """Convert username/handle to channel ID."""
         try:
             lookup_username = self.username if self.username.startswith('@') else f'@{self.username}'
@@ -171,7 +170,7 @@ class YouTubeVideosPlatform(MediaPlatform):
                     channel_id = response['items'][0]['id']
                     logger.info(f"✓ Resolved YouTube channel ID: {channel_id}")
                     return channel_id
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  # fall through to the legacy lookup; it is logged
                 logger.debug(f"Handle lookup failed for {lookup_username}: {e}")
             
             # Try legacy username
@@ -186,30 +185,29 @@ class YouTubeVideosPlatform(MediaPlatform):
                         channel_id = response['items'][0]['id']
                         logger.info(f"✓ Resolved YouTube channel ID: {channel_id}")
                         return channel_id
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001  # unresolved is a valid outcome; it is logged
                     logger.debug(f"Username lookup failed for {self.username}: {e}")
             
             return None
             
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("Error resolving YouTube channel ID")
             return None
     
     def _check_quota_cooldown(self) -> bool:
         """Check if we're in quota cooldown. Returns True if we should skip."""
-        if self.quota_exceeded:
-            if self.quota_exceeded_time:
-                time_since_quota_error = datetime.now() - self.quota_exceeded_time
-                if time_since_quota_error < timedelta(hours=1):
-                    logger.debug("YouTube API quota exceeded, skipping check")
-                    return True
-                else:
-                    self.quota_exceeded = False
-                    self.quota_exceeded_time = None
-                    self.consecutive_errors = 0
+        if self.quota_exceeded and self.quota_exceeded_time:
+            time_since_quota_error = datetime.now(timezone.utc) - self.quota_exceeded_time
+            if time_since_quota_error < timedelta(hours=1):
+                logger.debug("YouTube API quota exceeded, skipping check")
+                return True
+            else:
+                self.quota_exceeded = False
+                self.quota_exceeded_time = None
+                self.consecutive_errors = 0
         return False
 
-    def _resolve_check_channel(self, username: Optional[str] = None) -> Optional[str]:
+    def _resolve_check_channel(self, username: str | None = None) -> str | None:
         """Determine which channel ID to use for a check."""
         if username and username != self.username:
             channel_id = self._resolve_channel_id(username)
@@ -235,7 +233,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             'comment_count': int(statistics.get('commentCount', 0)) if statistics.get('commentCount') else None,
         }
 
-    def _fetch_recent_uploads(self, channel_id: str) -> Tuple[bool, List[dict]]:
+    def _fetch_recent_uploads(self, channel_id: str) -> tuple[bool, list[dict]]:
         """
         Fetch recent non-livestream uploads for a channel.
         
@@ -292,19 +290,19 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.consecutive_errors = 0
             return True, videos
             
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # keep the daemon alive; quota vs other is logged below
             self.consecutive_errors += 1
             error_str = str(e)
             if 'quotaExceeded' in error_str or 'quota' in error_str.lower():
                 if not self.quota_exceeded:
                     self.quota_exceeded = True
-                    self.quota_exceeded_time = datetime.now()
+                    self.quota_exceeded_time = datetime.now(timezone.utc)
                     logger.error("❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
                 logger.error("⚠ Error checking YouTube")
             return False, []
 
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def get_latest_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Get the latest video from a YouTube channel.
         
@@ -331,7 +329,7 @@ class YouTubeVideosPlatform(MediaPlatform):
         
         return True, videos[0]
 
-    def get_video_by_id(self, video_id: str) -> Tuple[bool, Optional[dict]]:
+    def get_video_by_id(self, video_id: str) -> tuple[bool, dict | None]:
         """
         Fetch details for a specific video by ID (for one-off posting).
         
@@ -363,12 +361,12 @@ class YouTubeVideosPlatform(MediaPlatform):
             self.consecutive_errors = 0
             return True, video_info
             
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             self.consecutive_errors += 1
             logger.error(f"⚠ Error fetching video {video_id}")
             return False, None
     
-    def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def check_for_new_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Check if there's a new video since last check (single-video compat).
         Returns the newest new video only. Use check_for_new_videos() to get all.
@@ -378,7 +376,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             return True, new_videos[-1]  # newest
         return False, None
 
-    def check_for_new_videos(self, username: Optional[str] = None) -> List[dict]:
+    def check_for_new_videos(self, username: str | None = None) -> list[dict]:
         """
         Check for ALL new videos since last check.
         
@@ -462,7 +460,7 @@ class YouTubeVideosPlatform(MediaPlatform):
         # instead of silently skipping the remainder.
         return new_videos
     
-    def _resolve_channel_id(self, username: str) -> Optional[str]:
+    def _resolve_channel_id(self, username: str) -> str | None:
         """Resolve a channel ID from a username/handle."""
         try:
             lookup_username = username if username.startswith('@') else f'@{username}'
@@ -485,6 +483,6 @@ class YouTubeVideosPlatform(MediaPlatform):
                     return response['items'][0]['id']
             
             return None
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.warning(f"Error resolving YouTube channel ID for {username}")
             return None
