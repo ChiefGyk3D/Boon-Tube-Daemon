@@ -42,6 +42,15 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade "pip>=25.3" && \
     pip install --no-cache-dir -r requirements.txt
 
+# Drop pip from the runtime image once the dependencies are in place. Nothing
+# runs pip after this point, and pip vendors its own copies of msgpack
+# (GHSA-6v7p-g79w-8964) and setuptools' pkg_resources (CVE-2025-47273,
+# CVE-2026-59890) that Trivy reports from pip/_vendor/bom.cdx.json; the venv
+# itself carries neither package, so upgrading them there changes nothing.
+# `python -m ensurepip` restores pip if a shell session ever needs it.
+RUN python -m pip uninstall -y pip && \
+    /usr/local/bin/python -m pip uninstall -y pip
+
 # Copy application code
 COPY boon_tube_daemon/ /app/boon_tube_daemon/
 COPY main.py /app/
