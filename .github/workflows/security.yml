@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   security:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@5d494e4e2410ca86e32c2171d6bba59fc32f1be6 # v1.3.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@5df66539de085aff73dcf1f2957615689b846298 # v1.3.1
     permissions:
       contents: read
       security-events: write
@@ -37,6 +37,7 @@ jobs:
       # reviewed by 2026-12-20; the audit fails if that entry lapses.
       dependency-review-allow-ghsas: GHSA-8mgp-746c-j5xp
       snyk: true
+      egress-policy: block
       doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
