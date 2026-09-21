@@ -339,6 +339,26 @@ python test_youtube.py
 python test_llm_posts.py
 ```
 
+### Dependency lock
+
+`requirements.in` lists the direct dependencies. `requirements.txt` is
+generated from it and pins every dependency, transitive ones included, to a
+version and its SHA-256 hashes. pip enters hash-checking mode by itself when it
+reads the file, so `pip install -r requirements.txt` verifies every download,
+and CI and the Docker image install with `--require-hashes`: a package
+re-uploaded under the same version fails to install instead of shipping. To
+add or bump a dependency, edit `requirements.in` and regenerate the lock with
+the command in its header; never edit `requirements.txt` by hand. Dependabot
+regenerates it for version bumps.
+
+The runtime requirements also carry the scan tools (`safety`, `bandit`) and
+the test tools; moving them into a dev lock of their own is on the shared
+[roadmap](https://github.com/ChiefGyk3D/git-your-ship-together/blob/main/docs/ROADMAP.md).
+Until then one advisory in `safety`'s dependency `nltk`, which nothing here
+calls and which has no fixed release, is a named exception in the shared
+[risk register](https://github.com/ChiefGyk3D/git-your-ship-together/blob/main/baseline/risk-register.yaml),
+reviewed quarterly.
+
 ## 📜 Legal
 
 ### License
