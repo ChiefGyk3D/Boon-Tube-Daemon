@@ -90,3 +90,6 @@ desktop.ini
 
 # Docker overrides (for local testing)
 docker-compose.override.yml
+
+# Scanner output is a CI artifact, never a committed file
+*.sarif
