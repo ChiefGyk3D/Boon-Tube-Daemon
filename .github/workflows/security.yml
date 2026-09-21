@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   security:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@f6538c8277d5b02b1c8c8f817dc354c0faaa4622 # v1.2.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@5d494e4e2410ca86e32c2171d6bba59fc32f1be6 # v1.3.0
     permissions:
       contents: read
       security-events: write
@@ -32,6 +32,10 @@ jobs:
       # by ID so the job stays strict for everything else; drop this line
       # when a fixed nltk ships and the pin moves.
       pip-audit-extra-args: --ignore-vuln PYSEC-2026-3740
+      # The same advisory as GitHub names it, for dependency review. Both IDs
+      # are one entry in git-your-ship-together's baseline/risk-register.yaml,
+      # reviewed by 2026-12-20; the audit fails if that entry lapses.
+      dependency-review-allow-ghsas: GHSA-8mgp-746c-j5xp
       snyk: true
       doppler-project: ci
       doppler-config: ci

@@ -1,0 +1,52 @@
+# Direct dependencies. requirements.txt is generated from this file with every transitive
+# dependency pinned and hashed; regenerate it after editing here:
+#
+#   pip install uv
+#   uv pip compile requirements.in --universal --generate-hashes --python-version 3.10 -o requirements.txt
+#
+# pip enters hash-checking mode by itself when it reads requirements.txt, so
+# `pip install -r requirements.txt` verifies every download against the lock.
+# Boon-Tube-Daemon Requirements
+# Python dependencies for monitoring TikTok/YouTube and posting to social platforms
+#
+# Removed unused packages (not imported in codebase):
+# - TikTokApi: Replaced with Playwright network interception
+# - discord-webhook: Using requests directly for webhooks  
+# - matrix-nio: Using requests directly for Matrix API
+# - pyyaml: Not used
+# - aiohttp: Not needed, using requests
+# - sqlalchemy: Not used for state tracking
+# - colorlog: Using standard logging
+
+# Shared core: social posting (Bluesky/Mastodon/Discord/Matrix), LLM
+# generation (Ollama/Gemini with failover + guardrails), config/secrets.
+# The [all] extra pulls atproto, grapheme, Mastodon.py, ollama, google-genai,
+# beautifulsoup4; [doppler] pulls the Doppler SDK.
+hypeman-social[all,doppler]>=0.2.0,<0.3
+
+# Core dependencies
+requests==2.34.2
+python-dateutil==2.9.0.post0
+
+# YouTube API
+google-api-python-client==2.200.0
+
+# TikTok monitoring via Playwright (no TikTokApi package needed)
+playwright==1.62.0
+
+# Security: Pin protobuf to 5.x for compatibility with google-api-python-client
+protobuf>=7.36.2,<8.0.0
+
+# Configuration
+python-dotenv==1.2.3
+
+# Secret Management (optional extras beyond Doppler)
+# AWS Secrets Manager: hypeman-social[aws]
+# HashiCorp Vault: hypeman-social[vault]
+
+# Development/Testing (for CI/CD)
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.7
+bandit==1.9.4
+safety==3.8.1
