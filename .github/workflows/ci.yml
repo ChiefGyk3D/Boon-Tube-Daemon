@@ -37,6 +37,6 @@ jobs:
       lint-command: ruff check boon_tube_daemon/ main.py --output-format=github
       dockerfile: docker/Dockerfile
       docker-test-command: docker run --rm "$IMAGE" python -c "import boon_tube_daemon; print('Import successful')"
-      doppler-project: boon-tube-daemon
+      doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}

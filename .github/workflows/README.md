@@ -20,8 +20,8 @@ installs every dependency twice, so `release.yml` allows 90 minutes.
 
 No secret is stored in this repository's GitHub secrets. A job authenticates
 to Doppler with a short-lived token minted from its own GitHub OIDC identity
-(a Doppler Service Account Identity) and reads the `ci` config of the
-`boon-tube-daemon` project, which holds only what the pipelines need:
+(a Doppler Service Account Identity) and reads the `ci` config of the shared
+`ci` Doppler project, which holds only what the pipelines need:
 
 | Name | Used by |
 |---|---|

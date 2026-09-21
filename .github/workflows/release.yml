@@ -40,6 +40,6 @@ jobs:
       push: ${{ github.event_name != 'pull_request' }}
       docker-test-command: docker run --rm "$IMAGE" python -c "import boon_tube_daemon; print('Import successful')"
       timeout-minutes: 90
-      doppler-project: boon-tube-daemon
+      doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
