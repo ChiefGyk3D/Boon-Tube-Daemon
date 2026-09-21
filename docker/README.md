@@ -127,6 +127,10 @@ Debian trixie ships SQLite 3.46.1-7 which is vulnerable to an integer overflow i
 
 pip versions before 25.3 are vulnerable to a symbolic link extraction vulnerability. We upgrade pip to the latest version (25.3+) during build.
 
+#### pip removed from the runtime image
+
+Once the dependencies are installed the build uninstalls pip from both the venv and the base interpreter. The daemon never calls pip at runtime, and pip vendors its own copies of msgpack (GHSA-6v7p-g79w-8964) and setuptools' `pkg_resources` (CVE-2025-47273, CVE-2026-59890) that image scanners report from `pip/_vendor/bom.cdx.json`. If a debugging session inside the container needs pip, `python -m ensurepip` restores it.
+
 ## Health Check
 
 The container includes a health check that verifies the package can be imported:
