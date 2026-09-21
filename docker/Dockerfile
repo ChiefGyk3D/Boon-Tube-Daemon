@@ -4,7 +4,9 @@
 # Security fixes:
 # - CVE-2025-7709: SQLite upgraded to 3.50.4 (from 3.46.1)
 # - CVE-2025-8869: pip upgraded to 25.3+ (symbolic link extraction)
-FROM python:3.14-slim
+# The base image is pinned by digest so a rebuild is reproducible and a
+# retagged upstream image cannot slip in; Dependabot moves the digest.
+FROM python:3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2
 
 # Set build arguments for platform detection (automatically set by buildx)
 ARG TARGETPLATFORM
