@@ -28,14 +28,6 @@ jobs:
     with:
       codeql-queries: security-extended,security-and-quality
       pip-audit-requirements: requirements.txt
-      # nltk 3.10.3 carries PYSEC-2026-3740 with no fixed release yet. Ignored
-      # by ID so the job stays strict for everything else; drop this line
-      # when a fixed nltk ships and the pin moves.
-      pip-audit-extra-args: --ignore-vuln PYSEC-2026-3740
-      # The same advisory as GitHub names it, for dependency review. Both IDs
-      # are one entry in git-your-ship-together's baseline/risk-register.yaml,
-      # reviewed by 2026-12-20; the audit fails if that entry lapses.
-      dependency-review-allow-ghsas: GHSA-8mgp-746c-j5xp
       snyk: true
       egress-policy: block
       doppler-project: ci
