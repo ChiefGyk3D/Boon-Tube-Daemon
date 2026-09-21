@@ -15,43 +15,37 @@ __license__ = "MIT"
 
 from boon_tube_daemon.media import (
     MediaPlatform,
-    YouTubeVideosPlatform,
     TikTokPlatform,
+    YouTubeVideosPlatform,
 )
-
 from boon_tube_daemon.social import (
-    DiscordPlatform,
-    MatrixPlatform,
     BlueskyPlatform,
+    DiscordPlatform,
     MastodonPlatform,
+    MatrixPlatform,
 )
-
 from boon_tube_daemon.utils.config import (
-    load_config,
-    get_config,
     get_bool_config,
+    get_config,
     get_int_config,
     get_secret,
+    load_config,
 )
 
 __all__ = [
-    # Media platforms
-    'MediaPlatform',
-    'YouTubeVideosPlatform',
-    'TikTokPlatform',
-    # Social platforms
-    'DiscordPlatform',
-    'MatrixPlatform',
     'BlueskyPlatform',
+    'DiscordPlatform',
     'MastodonPlatform',
-    # Configuration
-    'load_config',
-    'get_config',
-    'get_bool_config',
-    'get_int_config',
-    'get_secret',
-    # Metadata
-    '__version__',
+    'MatrixPlatform',
+    'MediaPlatform',
+    'TikTokPlatform',
+    'YouTubeVideosPlatform',
     '__author__',
     '__license__',
+    '__version__',
+    'get_bool_config',
+    'get_config',
+    'get_int_config',
+    'get_secret',
+    'load_config',
 ]

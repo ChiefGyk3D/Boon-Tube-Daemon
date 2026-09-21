@@ -11,9 +11,10 @@ API Documentation: https://developers.tiktok.com/doc/login-kit-web
 """
 
 import logging
-import requests
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+
+import requests
+
 from boon_tube_daemon.media.base import MediaPlatform
 from boon_tube_daemon.utils.config import get_config, get_secret
 
@@ -49,8 +50,7 @@ class TikTokAPIPlatform(MediaPlatform):
                 return False
             
             # Remove @ prefix if present
-            if self.username.startswith("@"):
-                self.username = self.username[1:]
+            self.username = self.username.removeprefix("@")
             
             if not self.client_key or not self.client_secret:
                 logger.warning("✗ TikTok API credentials not configured (TIKTOK_CLIENT_KEY/SECRET)")
@@ -61,12 +61,12 @@ class TikTokAPIPlatform(MediaPlatform):
             logger.info(f"✓ TikTok API configured for @{self.username}")
             return True
             
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("✗ TikTok API authentication failed")
             self.enabled = False
             return False
     
-    def _get_access_token(self) -> Optional[str]:
+    def _get_access_token(self) -> str | None:
         """
         Get access token using client credentials flow.
         
@@ -90,7 +90,7 @@ class TikTokAPIPlatform(MediaPlatform):
         logger.warning("No TikTok access token found. Please complete OAuth flow first.")
         return None
     
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def get_latest_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Get the latest video from a TikTok account using official API.
         
@@ -125,7 +125,7 @@ class TikTokAPIPlatform(MediaPlatform):
                 "fields": "id,title,video_description,duration,cover_image_url,create_time,like_count,view_count,share_count,comment_count"
             }
             
-            response = requests.post(url, headers=headers, json=params)
+            response = requests.post(url, headers=headers, json=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
@@ -161,11 +161,11 @@ class TikTokAPIPlatform(MediaPlatform):
         except requests.exceptions.RequestException:
             logger.error("TikTok API request failed")
             return False, None
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("Error getting TikTok video")
             return False, None
     
-    def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def check_for_new_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Check if there's a new video since last check.
         

@@ -21,11 +21,11 @@ from hypeman_social.config import (
 )
 
 __all__ = [
-    'load_config',
-    'get_config',
     'get_bool_config',
-    'get_int_config',
+    'get_config',
     'get_float_config',
-    'get_usernames',
+    'get_int_config',
     'get_secret',
+    'get_usernames',
+    'load_config',
 ]

@@ -17,7 +17,6 @@ failover between a local Ollama box and Gemini.
 
 import logging
 import re
-from typing import Optional
 
 from hypeman_social.llm import VIDEO_PROFILE, LLMManager, build_provider
 
@@ -61,7 +60,7 @@ class VideoPostGenerator:
             compatibility wrappers and by tests that target one backend.
     """
 
-    def __init__(self, provider: Optional[str] = None):
+    def __init__(self, provider: str | None = None):
         if provider:
             self._engine = build_provider(provider, VIDEO_PROFILE)
             if self._engine is None:
@@ -128,7 +127,7 @@ Return ONLY "yes" or "no"."""
             logger.info(f"🚫 LLM filtered out video: {title[:50]}...")
         return should
 
-    def generate_hashtags(self, video_data: dict, max_tags: int = 5) -> Optional[str]:
+    def generate_hashtags(self, video_data: dict, max_tags: int = 5) -> str | None:
         """Generate space-separated hashtags for a video, or None."""
         if not self.enabled:
             return None
@@ -153,7 +152,7 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
         video_data: dict,
         platform_name: str,
         social_platform: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate a platform-tailored announcement for a new video.
 

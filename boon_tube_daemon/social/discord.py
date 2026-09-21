@@ -11,4 +11,4 @@ announcements get the "New Video" embed rather than the "Live" one.
 from hypeman_social.social.base import EVENT_UPLOAD
 from hypeman_social.social.discord import DiscordPlatform
 
-__all__ = ['DiscordPlatform', 'EVENT_UPLOAD']
+__all__ = ['EVENT_UPLOAD', 'DiscordPlatform']

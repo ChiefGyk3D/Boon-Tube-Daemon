@@ -11,13 +11,13 @@ Uses browser automation to intercept API calls and extract video data.
 
 import asyncio
 import logging
-from typing import Optional, Tuple, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
-from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from playwright.async_api import TimeoutError as PlaywrightTimeout
+from playwright.async_api import async_playwright
 
-from boon_tube_daemon.utils.config import get_config
 from boon_tube_daemon.media.base import MediaPlatform
+from boon_tube_daemon.utils.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +48,13 @@ class TikTokPlatform(MediaPlatform):
                 return False
             
             # Remove @ prefix if present
-            if self.username.startswith("@"):
-                self.username = self.username[1:]
+            self.username = self.username.removeprefix("@")
             
             self.enabled = True
             logger.info(f"✓ TikTok monitoring configured for @{self.username}")
             return True
             
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("✗ TikTok authentication failed")
             self.enabled = False
             return False
@@ -76,7 +75,7 @@ class TikTokPlatform(MediaPlatform):
             await self.playwright_instance.stop()
             self.playwright_instance = None
     
-    async def _get_latest_video_async(self, username: str) -> Optional[Dict]:
+    async def _get_latest_video_async(self, username: str) -> dict | None:
         """
         Get the latest video from a TikTok user (async).
         
@@ -116,23 +115,20 @@ class TikTokPlatform(MediaPlatform):
                 try:
                     # ONLY look for post/item_list (user's own videos, NOT reposts)
                     if "api/post/item_list" in response.url:
-                        try:
-                            data = await response.json()
-                            if "itemList" in data and data["itemList"]:
-                                # Filter to ONLY videos actually by this user
-                                user_videos = [
-                                    item for item in data["itemList"]
-                                    if item.get("author", {}).get("uniqueId", "").lower() == username.lower()
-                                ]
-                                if user_videos:
-                                    logger.debug(f"Found {len(user_videos)} videos by @{username}")
-                                    self.video_data = user_videos
-                                else:
-                                    logger.debug(f"API returned {len(data['itemList'])} videos but none by @{username}")
-                        except:
-                            pass
-                except:
-                    pass
+                        data = await response.json()
+                        if data.get("itemList"):
+                            # Filter to ONLY videos actually by this user
+                            user_videos = [
+                                item for item in data["itemList"]
+                                if item.get("author", {}).get("uniqueId", "").lower() == username.lower()
+                            ]
+                            if user_videos:
+                                logger.debug(f"Found {len(user_videos)} videos by @{username}")
+                                self.video_data = user_videos
+                            else:
+                                logger.debug(f"API returned {len(data['itemList'])} videos but none by @{username}")
+                except Exception:  # noqa: BLE001  # a bad response must not break the page load; it is logged
+                    logger.debug("Ignoring an unreadable TikTok API response")
 
             
             page.on("response", handle_response)
@@ -166,7 +162,7 @@ class TikTokPlatform(MediaPlatform):
                     "description": item.get("desc", ""),
                     "url": f"https://www.tiktok.com/@{author_id}/video/{video_id}",
                     "thumbnail_url": item.get("video", {}).get("cover", ""),
-                    "published_at": datetime.fromtimestamp(item.get("createTime", 0)),
+                    "published_at": datetime.fromtimestamp(item.get("createTime", 0), tz=timezone.utc),
                     "author": author_id,
                     "stats": {
                         "plays": item.get("stats", {}).get("playCount", 0),
@@ -185,11 +181,11 @@ class TikTokPlatform(MediaPlatform):
         except PlaywrightTimeout:
             logger.error(f"✗ Timeout loading TikTok page for @{username}")
             return None
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("✗ Error fetching TikTok videos")
             return None
     
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
+    def get_latest_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Get the latest video from a TikTok user (sync wrapper).
         
@@ -205,8 +201,7 @@ class TikTokPlatform(MediaPlatform):
             return False, None
         
         # Remove @ if present
-        if target_username.startswith("@"):
-            target_username = target_username[1:]
+        target_username = target_username.removeprefix("@")
         
         try:
             # Run async function in event loop
@@ -219,11 +214,11 @@ class TikTokPlatform(MediaPlatform):
                 return False, None
             finally:
                 loop.close()
-        except Exception:
+        except Exception:  # noqa: BLE001  # keep the daemon alive; the failure is logged
             logger.error("Error in get_latest_video")
             return False, None
     
-    def check_for_new_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
+    def check_for_new_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Check if there's a new video since the last check.
         
@@ -265,5 +260,5 @@ class TikTokPlatform(MediaPlatform):
                 loop.run_until_complete(self._cleanup_browser())
             finally:
                 loop.close()
-        except Exception:
+        except Exception:  # noqa: BLE001  # cleanup must not raise; the failure is logged
             logger.error("Error during cleanup")

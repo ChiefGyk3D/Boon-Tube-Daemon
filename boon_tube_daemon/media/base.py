@@ -6,7 +6,6 @@
 Base class for media platform monitoring.
 """
 
-from typing import Optional, Tuple
 from abc import ABC, abstractmethod
 
 
@@ -34,7 +33,7 @@ class MediaPlatform(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def get_latest_video(self, username: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+    def get_latest_video(self, username: str | None = None) -> tuple[bool, dict | None]:
         """
         Get the latest video from a channel/user.
         
