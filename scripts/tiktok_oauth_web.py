@@ -19,6 +19,7 @@ Usage:
     6. Store tokens using commands printed
 """
 
+import html
 import os
 import sys
 import json
@@ -148,7 +149,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             
         elif "error" in params:
             auth_error = params.get("error_description", [params["error"][0]])[0]
-            
+
             # Send error response to browser
             self.send_response(200)
             self.send_header("Content-type", "text/html")
@@ -157,7 +158,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             <html>
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
                 <h1 style="color: red;">✗ Authorization Failed</h1>
-                <p><strong>Error:</strong> {auth_error}</p>
+                <p><strong>Error:</strong> {html.escape(auth_error)}</p>
                 <p>Please check the terminal for more information.</p>
             </body>
             </html>
