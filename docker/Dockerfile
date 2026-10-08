@@ -19,13 +19,17 @@ WORKDIR /app
 # CVE-2025-7709: SQLite FTS5 integer overflow (fixed in 3.50.3+)
 # Note: Python's built-in sqlite3 uses the system SQLite which is 3.46.1
 # We'll install pysqlite3-binary which bundles SQLite 3.50.4+
+# Apt versions are left unpinned on purpose: the base image is pinned by digest,
+# and Debian removes superseded package versions, so exact apt pins would break
+# the build at every security update.
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-    gcc=4:14.2.0-1 \
-    libc6-dev=2.41-12+deb13u4 \
-    libffi-dev=3.4.8-2 \
-    libssl-dev=3.5.7-1~deb13u3 \
+    gcc \
+    libc6-dev \
+    libffi-dev \
+    libssl-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
