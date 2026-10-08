@@ -5,7 +5,6 @@ AI post because the model tacked hashtags on anyway. Measured on gemma4:12b:
 import pytest
 
 from boon_tube_daemon.llm.generator import VideoPostGenerator
-
 from tests.test_hypeman_migration import VIDEO, FakeEngine
 
 
