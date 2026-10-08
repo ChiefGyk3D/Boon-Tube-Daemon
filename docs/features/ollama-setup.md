@@ -60,11 +60,11 @@ George Carlin would've loved this: We spent decades building supercomputers that
 
 2. **Pull a model:**
    ```bash
-   # 🏆 Recommended: Fast AND good quality (~1 second response!)
-   ollama pull gemma3:4b
+   # 🏆 Recommended: measured against this daemon (gemma4:12b, ~2-3 s median per post)
+   ollama pull gemma4:12b
    
-   # Alternative for 16GB GPUs: Premium quality
-   ollama pull gemma3:12b
+   # Smaller GPU alternative
+   ollama pull gemma3:4b
    ```
 
 3. **Start Ollama:**
@@ -87,7 +87,7 @@ George Carlin would've loved this: We spent decades building supercomputers that
    # Ollama server location
    LLM_OLLAMA_HOST=http://localhost  # Or your server IP: http://192.168.1.100
    LLM_OLLAMA_PORT=11434
-   LLM_MODEL=gemma3:4b
+   LLM_OLLAMA_MODEL=gemma4:12b
    
    # Enable enhanced notifications
    LLM_ENHANCE_NOTIFICATIONS=true
@@ -109,7 +109,7 @@ That's it! Boon-Tube-Daemon will now use Ollama to generate unique, engaging pos
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull your chosen model
-ollama pull gemma2:2b
+ollama pull gemma4:12b
 
 # Start Ollama (runs as background service)
 ollama serve
@@ -168,7 +168,7 @@ LLM_PROVIDER=ollama  # Options: ollama, gemini
 # Ollama server configuration
 LLM_OLLAMA_HOST=http://192.168.1.100  # Your Ollama server IP
 LLM_OLLAMA_PORT=11434                  # Default Ollama port
-LLM_MODEL=gemma2:2b                    # Model to use
+LLM_OLLAMA_MODEL=gemma4:12b                    # Ollama model (Gemini uses LLM_GEMINI_MODEL)
 
 # Enhanced notifications (generates unique posts per platform)
 LLM_ENHANCE_NOTIFICATIONS=true
@@ -408,8 +408,8 @@ ollama pull gemma3:4b
 # Verify it's available
 ollama list
 
-# Check model name matches .env EXACTLY
-# LLM_MODEL=gemma3:4b  (typos are not forgiven)
+# Check model name matches your config EXACTLY
+# LLM_OLLAMA_MODEL=gemma4:12b  (typos are not forgiven)
 ```
 
 ### "Ollama Python client not installed"
