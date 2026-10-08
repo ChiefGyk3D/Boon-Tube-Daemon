@@ -66,7 +66,7 @@ nano .env  # Configure YouTube channel, platform settings
 # Option 1: Ollama (local, privacy-first, no costs)
 # Install on your LLM server:
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull gemma2:2b
+ollama pull gemma4:12b
 ollama serve
 
 # In .env:
@@ -74,7 +74,7 @@ LLM_ENABLE=true
 LLM_PROVIDER=ollama
 LLM_OLLAMA_HOST=http://localhost  # Or your server IP
 LLM_OLLAMA_PORT=11434
-LLM_MODEL=gemma2:2b
+LLM_OLLAMA_MODEL=gemma4:12b
 LLM_ENHANCE_NOTIFICATIONS=true
 
 # Option 2: Google Gemini (cloud API)
@@ -91,7 +91,7 @@ LLM_ENHANCE_NOTIFICATIONS=true
 LLM_ENABLE=true
 LLM_PROVIDER=ollama
 LLM_OLLAMA_HOST=http://localhost
-LLM_OLLAMA_MODEL=gemma3:4b
+LLM_OLLAMA_MODEL=gemma4:12b
 LLM_FALLBACK_PROVIDER=gemini
 LLM_GEMINI_MODEL=gemini-2.0-flash-lite
 GEMINI_API_KEY=your_api_key_here
@@ -249,7 +249,7 @@ Each platform receives a unique, AI-generated post based on the video content:
   - Run on your own hardware
   - No data sent to external services
   - No rate limits
-  - Models: gemma2:2b, gemma3:4b, llama3.2:3b, mistral:7b, etc.
+  - Models: gemma4:12b (measured against this daemon), llama3.2:3b, mistral:7b, etc.
   - See [Ollama Setup Guide](docs/features/ollama-setup.md)
 
 - **Google Gemini**: Cloud API alternative

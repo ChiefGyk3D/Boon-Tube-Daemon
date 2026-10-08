@@ -131,7 +131,7 @@ Just expect some CPU offloading - which is tech speak for "your GPU gave up and 
 
 **Recommended Configuration:**
 ```bash
-LLM_MODEL=gemma3:2b
+LLM_OLLAMA_MODEL=gemma3:2b
 ```
 
 ---
@@ -158,7 +158,7 @@ Benchmark testing showed Gemma3:4b completing notifications in ~1 second while Q
 
 **Recommended Configuration:**
 ```bash
-LLM_MODEL=gemma3:4b
+LLM_OLLAMA_MODEL=gemma3:4b
 ```
 
 ---
@@ -177,7 +177,7 @@ quality at near-instant speeds (~1.3 seconds).
 
 **Recommended Configuration:**
 ```bash
-LLM_MODEL=gemma3:12b
+LLM_OLLAMA_MODEL=gemma4:12b
 ```
 
 ---
