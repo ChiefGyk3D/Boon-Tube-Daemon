@@ -113,6 +113,19 @@ def get_redirect_uri():
     sys.exit(1)
 
 
+def build_error_html(error_message):
+    """Build the error page, HTML-escaping the request-derived message"""
+    return f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: red;">✗ Authorization Failed</h1>
+                <p><strong>Error:</strong> {html.escape(error_message, quote=True)}</p>
+                <p>Please check the terminal for more information.</p>
+            </body>
+            </html>
+            """
+
+
 class CallbackHandler(BaseHTTPRequestHandler):
     """HTTP request handler for OAuth callbacks"""
     
@@ -154,15 +167,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            error_html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: red;">✗ Authorization Failed</h1>
-                <p><strong>Error:</strong> {html.escape(auth_error)}</p>
-                <p>Please check the terminal for more information.</p>
-            </body>
-            </html>
-            """
+            error_html = build_error_html(auth_error)
             self.wfile.write(error_html.encode())
         
         else:
