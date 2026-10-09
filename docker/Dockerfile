@@ -19,6 +19,10 @@ WORKDIR /app
 # CVE-2025-7709: SQLite FTS5 integer overflow (fixed in 3.50.3+)
 # Note: Python's built-in sqlite3 uses the system SQLite which is 3.46.1
 # We'll install pysqlite3-binary which bundles SQLite 3.50.4+
+# Apt versions are left unpinned on purpose: the base image is pinned by digest,
+# and Debian removes superseded package versions, so exact apt pins would break
+# the build at every security update.
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
@@ -55,8 +59,13 @@ RUN python -m pip uninstall -y pip && \
 COPY boon_tube_daemon/ /app/boon_tube_daemon/
 COPY main.py /app/
 
-# Create config directory
-RUN mkdir -p /app/config
+# Dedicated non-root user. UID/GID 1000 matches the owner of the host's
+# existing ./config bind mount, so the mount keeps working with no chown.
+# /app/config is where the daemon writes its YouTube state file.
+RUN groupadd --gid 1000 boontube \
+    && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin boontube \
+    && mkdir -p /app/config \
+    && chown -R boontube:boontube /app
 
 # Expose volume for configuration
 VOLUME ["/app/config"]
@@ -71,6 +80,9 @@ ENV PYTHONUNBUFFERED=1
 # Uses python urllib because slim images ship neither curl nor pgrep.
 HEALTHCHECK --interval=5m --timeout=5s --start-period=60s --retries=3 \
   CMD ["python", "-c", "import os,sys,urllib.request;port=os.getenv('HEALTH_PORT');urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4) if port else sys.exit(0 if os.path.isdir('/proc/1') else 1)"]
+
+# Drop to the non-root user for everything that runs
+USER 1000:1000
 
 # Run the daemon
 CMD ["python", "-u", "main.py"]

@@ -185,6 +185,10 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
             return None
 
         notification = self._strip_meta_text(notification)
+        if not use_hashtags:
+            # The prompt says no hashtags, but models add them anyway and the
+            # guardrail then rejects the whole post. Remove them instead.
+            notification = self._strip_hashtags(notification)
 
         cleaned, issues = self._engine.apply_guardrails(
             notification,
@@ -224,6 +228,15 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
         return notification.strip()
 
     @staticmethod
+    def _strip_hashtags(text: str) -> str:
+        """Remove #tags (for platforms that expect none) and tidy the gaps."""
+        text = re.sub(r'(?<!\w)#[A-Za-z]\w*', '', text)
+        text = re.sub(r'[ \t]{2,}', ' ', text)
+        text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    @staticmethod
     def _build_notification_prompt(
         platform_name: str,
         channel_name: str,
@@ -241,6 +254,10 @@ Example format: #Tech #Gaming #Tutorial #AI #Programming"""
         clean_description = re.sub(r'https?://\S+', '', clean_description).strip()
 
         hashtag_instruction = ""
+        if not use_hashtags:
+            hashtag_instruction = """
+
+HASHTAGS: DO NOT use any hashtags. No # symbols anywhere in the post."""
         if use_hashtags:
             hashtag_instruction = f"""
 
