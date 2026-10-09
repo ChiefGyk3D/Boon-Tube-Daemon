@@ -367,7 +367,7 @@ class BoonTubeDaemon:
                 time.sleep(self.check_interval)
                 
                 # Check all platforms
-                logger.info(f"🔍 Checking platforms... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")  # local wall-clock for a log line
+                logger.info(f"🔍 Checking platforms... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")  # noqa: DTZ005  # local wall-clock for a log line
                 self.check_platforms()
                 
             except KeyboardInterrupt:
