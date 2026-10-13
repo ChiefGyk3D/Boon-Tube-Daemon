@@ -38,7 +38,7 @@ playwright==1.63.0
 protobuf>=7.36.2,<8.0.0
 
 # Configuration
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 
 # Secret Management (optional extras beyond Doppler)
 # AWS Secrets Manager: hypeman-social[aws]
