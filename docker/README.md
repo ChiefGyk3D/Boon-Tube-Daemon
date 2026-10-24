@@ -86,15 +86,18 @@ The container reads configuration from the `.env` file. Make sure to configure:
 
 **Required:**
 - `YOUTUBE_API_KEY` - YouTube Data API v3 key (in Doppler or .env)
-- `GEMINI_API_KEY` - Google Gemini API key (in Doppler or .env)
+- `GEMINI_API_KEY` - Google Gemini API key, only when the AI provider is `gemini` (in Doppler or .env)
 - `YOUTUBE_CHANNEL_ID` - Your YouTube channel ID
 - `CHECK_INTERVAL` - Check interval in seconds (default: 900 = 15 minutes)
+
+Empty or placeholder values are treated as unset and the feature is not enabled; see
+"Required Secrets" in the main README.
 
 **Optional Social Platforms (at least one recommended):**
 - Discord: `DISCORD_WEBHOOK_URL`, `DISCORD_ROLE_YOUTUBE`
 - Matrix: `MATRIX_USERNAME`, `MATRIX_PASSWORD`, `MATRIX_ROOM_ID`
 - Bluesky: `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD`
-- Mastodon: `MASTODON_ACCESS_TOKEN`, `MASTODON_INSTANCE_URL`
+- Mastodon: `MASTODON_ACCESS_TOKEN`, `MASTODON_API_BASE_URL`
 
 ### Volumes
 
