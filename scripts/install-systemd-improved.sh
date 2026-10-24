@@ -198,6 +198,11 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
 fi
 echo -e "${GREEN}✓${NC} Found .env file"
 
+# Refuse to install with template placeholder values in .env (names only, never values)
+if ! bash "$SCRIPT_DIR/env-check.sh" "$PROJECT_DIR/.env"; then
+    exit 1
+fi
+
 # Validate .env has required keys
 REQUIRED_ENV_VARS=("YOUTUBE_API_KEY" "YOUTUBE_CHANNEL_ID")
 MISSING_VARS=()
