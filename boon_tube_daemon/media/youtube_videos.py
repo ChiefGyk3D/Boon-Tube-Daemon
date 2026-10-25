@@ -11,7 +11,7 @@ Uses the YouTube Data API v3 with efficient quota management.
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from googleapiclient.discovery import build
@@ -82,7 +82,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             state = {
                 'last_video_id': self.last_video_id,
                 'channel_id': self.channel_id,
-                'updated_at': datetime.now(timezone.utc).isoformat()
+                'updated_at': datetime.now(UTC).isoformat()
             }
             with open(state_file, 'w') as f:
                 json.dump(state, f, indent=2)
@@ -197,7 +197,7 @@ class YouTubeVideosPlatform(MediaPlatform):
     def _check_quota_cooldown(self) -> bool:
         """Check if we're in quota cooldown. Returns True if we should skip."""
         if self.quota_exceeded and self.quota_exceeded_time:
-            time_since_quota_error = datetime.now(timezone.utc) - self.quota_exceeded_time
+            time_since_quota_error = datetime.now(UTC) - self.quota_exceeded_time
             if time_since_quota_error < timedelta(hours=1):
                 logger.debug("YouTube API quota exceeded, skipping check")
                 return True
@@ -226,7 +226,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             'title': snippet.get('title', 'Untitled'),
             'url': f"https://www.youtube.com/watch?v={video_id}",
             'thumbnail_url': snippet.get('thumbnails', {}).get('high', {}).get('url'),
-            'published_at': datetime.fromisoformat(snippet.get('publishedAt', '').replace('Z', '+00:00')) if snippet.get('publishedAt') else None,
+            'published_at': datetime.fromisoformat(snippet.get('publishedAt', '')) if snippet.get('publishedAt') else None,
             'description': snippet.get('description', ''),
             'view_count': int(statistics.get('viewCount', 0)) if statistics.get('viewCount') else None,
             'like_count': int(statistics.get('likeCount', 0)) if statistics.get('likeCount') else None,
@@ -296,7 +296,7 @@ class YouTubeVideosPlatform(MediaPlatform):
             if 'quotaExceeded' in error_str or 'quota' in error_str.lower():
                 if not self.quota_exceeded:
                     self.quota_exceeded = True
-                    self.quota_exceeded_time = datetime.now(timezone.utc)
+                    self.quota_exceeded_time = datetime.now(UTC)
                     logger.error("❌ YouTube API quota exceeded! Pausing checks for 1 hour.")
             else:
                 logger.error("⚠ Error checking YouTube")
@@ -411,9 +411,9 @@ class YouTubeVideosPlatform(MediaPlatform):
         if self.last_video_id is None:
             published_at = newest_video.get('published_at')
             if self.recent_video_hours > 0 and published_at:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 if published_at.tzinfo is None:
-                    published_at = published_at.replace(tzinfo=timezone.utc)
+                    published_at = published_at.replace(tzinfo=UTC)
                 time_since_published = now - published_at
                 if time_since_published < self.recent_video_window:
                     logger.info(f"📹 YouTube: First check - found recent video (published {time_since_published.total_seconds() / 60:.0f} min ago)")
