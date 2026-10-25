@@ -219,6 +219,11 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
 fi
 echo -e "${GREEN}✓${NC} .env file found"
 
+# Refuse to install with template placeholder values in .env (names only, never values)
+if ! bash "$SCRIPT_DIR/env-check.sh" "$PROJECT_DIR/.env"; then
+    exit 1
+fi
+
 # Validate .env has required settings
 echo "Validating .env configuration..."
 ENV_WARNINGS=0

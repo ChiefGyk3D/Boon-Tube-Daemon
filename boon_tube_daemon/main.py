@@ -32,6 +32,7 @@ from boon_tube_daemon.utils.config import (
     get_int_config,
     load_config,
 )
+from boon_tube_daemon.utils.required_secrets import missing_for, scrub_placeholder_env
 
 # TikTok support is optional (requires Playwright)
 try:
@@ -64,6 +65,14 @@ class BoonTubeDaemon:
         self.health = HealthState('boon-tube-daemon')
         self._health_server = None
         
+    @staticmethod
+    def _has_required(label: str, feature: str) -> bool:
+        """False, with an error naming the missing variables, if a feature lacks required secrets."""
+        missing = missing_for(feature)
+        if missing:
+            logger.error(f"  ✗ {label} not enabled: set {', '.join(missing)} (empty or template values are rejected)")
+        return not missing
+
     def initialize(self):
         """Initialize daemon and all platforms."""
         # Show banner
@@ -80,6 +89,10 @@ class BoonTubeDaemon:
         
         # Load configuration
         load_config()
+
+        # One placeholder rule for every secret: a template value counts as
+        # unset, and a feature missing a required secret is not enabled.
+        scrub_placeholder_env()
         
         # Get check interval
         self.check_interval = get_int_config('Settings', 'check_interval', default=900)
@@ -89,16 +102,17 @@ class BoonTubeDaemon:
         logger.info("\n📺 Initializing Media Platforms...")
         
         if get_bool_config('YouTube', 'enable_monitoring', default=False):
-            youtube = YouTubeVideosPlatform()
-            if youtube.authenticate():
-                self.media_platforms.append(youtube)
-            else:
-                logger.warning("  ⚠ YouTube monitoring disabled (authentication failed)")
+            youtube = YouTubeVideosPlatform() if self._has_required('YouTube monitoring', 'youtube') else None
+            if youtube is not None:
+                if youtube.authenticate():
+                    self.media_platforms.append(youtube)
+                else:
+                    logger.warning("  ⚠ YouTube monitoring disabled (authentication failed)")
         
         if get_bool_config('TikTok', 'enable_monitoring', default=False):
             if not TIKTOK_AVAILABLE:
                 logger.warning("  ⚠ TikTok monitoring disabled (Playwright not installed)")
-            else:
+            elif self._has_required('TikTok monitoring', 'tiktok'):
                 tiktok = TikTokPlatform()
                 if tiktok.authenticate():
                     self.media_platforms.append(tiktok)
@@ -119,6 +133,7 @@ class BoonTubeDaemon:
         # is configured. A provider that's down at startup is no longer fatal:
         # posts use the template fallback until it recovers.
         logger.info("\n🤖 Initializing LLM...")
+        self._has_required('LLM', 'llm')
         self.llm = VideoPostGenerator()
         if self.llm.authenticate():
             logger.info("✓ LLM ready")
@@ -129,24 +144,24 @@ class BoonTubeDaemon:
         # Initialize social platforms
         logger.info("\n📢 Initializing Social Platforms...")
         
-        if get_bool_config('Discord', 'enable_posting', default=False):
+        if get_bool_config('Discord', 'enable_posting', default=False) and self._has_required('Discord posting', 'discord'):
             # Boon-Tube announces uploads, so embeds default to the
             # "New Video" style rather than "Live".
             discord = DiscordPlatform(default_event_kind=EVENT_UPLOAD)
             if discord.authenticate():
                 self.social_platforms.append(discord)
         
-        if get_bool_config('Matrix', 'enable_posting', default=False):
+        if get_bool_config('Matrix', 'enable_posting', default=False) and self._has_required('Matrix posting', 'matrix'):
             matrix = MatrixPlatform()
             if matrix.authenticate():
                 self.social_platforms.append(matrix)
         
-        if get_bool_config('Bluesky', 'enable_posting', default=False):
+        if get_bool_config('Bluesky', 'enable_posting', default=False) and self._has_required('Bluesky posting', 'bluesky'):
             bluesky = BlueskyPlatform()
             if bluesky.authenticate():
                 self.social_platforms.append(bluesky)
         
-        if get_bool_config('Mastodon', 'enable_posting', default=False):
+        if get_bool_config('Mastodon', 'enable_posting', default=False) and self._has_required('Mastodon posting', 'mastodon'):
             mastodon = MastodonPlatform()
             if mastodon.authenticate():
                 self.social_platforms.append(mastodon)
