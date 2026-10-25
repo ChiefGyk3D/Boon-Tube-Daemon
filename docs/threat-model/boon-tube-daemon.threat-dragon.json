@@ -1,0 +1,946 @@
+{
+  "version": "2.6.2",
+  "summary": {
+    "title": "Boon-Tube-Daemon threat model",
+    "owner": "",
+    "description": "STRIDE model of the YouTube/TikTok upload monitor and its posting, LLM and release paths, drawn from the repository code. Posting, config and LLM provider code live in the external hypeman-social package and were not reviewed."
+  },
+  "detail": {
+    "diagrams": [
+      {
+        "id": 0,
+        "title": "Boon-Tube-Daemon data flow",
+        "diagramType": "STRIDE",
+        "cells": [
+          {
+            "id": "tb-ext",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Third-party platforms (internet)",
+              "description": "YouTube Data API, TikTok pages/API, Bluesky, Mastodon, Matrix, Discord, Gemini API. Outside operator control."
+            },
+            "position": {
+              "x": 20,
+              "y": 20
+            },
+            "size": {
+              "width": 300,
+              "height": 900
+            }
+          },
+          {
+            "id": "tb-host",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Operator host or container",
+              "description": "Docker container (docker/Dockerfile, non-root UID 1000) or systemd unit (boon-tube.service). Holds config, state file and secrets at runtime."
+            },
+            "position": {
+              "x": 360,
+              "y": 20
+            },
+            "size": {
+              "width": 760,
+              "height": 900
+            }
+          },
+          {
+            "id": "tb-lan",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Operator-run LLM host (Ollama)",
+              "description": "Local Ollama server reached over the network when LLM_PROVIDER=ollama (llm/generator.py via hypeman_social). UNVERIFIED: network placement and exposure are the operator's choice; the code only takes a host setting."
+            },
+            "position": {
+              "x": 1160,
+              "y": 20
+            },
+            "size": {
+              "width": 260,
+              "height": 300
+            }
+          },
+          {
+            "id": "tb-cicd",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Source repo and CI/release",
+              "description": "GitHub repository, GYST reusable workflows, GHCR image."
+            },
+            "position": {
+              "x": 1160,
+              "y": 360
+            },
+            "size": {
+              "width": 260,
+              "height": 560
+            }
+          },
+          {
+            "id": "a-creator",
+            "shape": "actor",
+            "data": {
+              "name": "Channel owner / uploader",
+              "description": "Publishes videos on YouTube/TikTok. Title and description text they write is the content that is announced and sent to the LLM (media/youtube_videos.py:_extract_video_info; media/tiktok.py).",
+              "threats": []
+            },
+            "position": {
+              "x": 60,
+              "y": 100
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-audience",
+            "shape": "actor",
+            "data": {
+              "name": "Social audience",
+              "description": "Reads announcements on Discord, Matrix, Bluesky, Mastodon. Sees whatever the daemon posts, including LLM output.",
+              "threats": []
+            },
+            "position": {
+              "x": 60,
+              "y": 700
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-operator",
+            "shape": "actor",
+            "data": {
+              "name": "Operator",
+              "description": "Edits .env or Doppler config, runs scripts/tiktok_oauth_web.py, runs the container or systemd unit, passes --post-video (main.py:main).",
+              "threats": []
+            },
+            "position": {
+              "x": 400,
+              "y": 780
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-contrib",
+            "shape": "actor",
+            "data": {
+              "name": "Contributor / dependency author",
+              "description": "Opens PRs or publishes a package the build pulls (requirements.txt hashes, hypeman-social).",
+              "threats": []
+            },
+            "position": {
+              "x": 1200,
+              "y": 430
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-daemon",
+            "shape": "process",
+            "data": {
+              "name": "BoonTubeDaemon main loop",
+              "description": "boon_tube_daemon/main.py: polls media platforms every check_interval (default 900 s), filters, formats and posts. Optional health server via HEALTH_PORT (main.py:initialize). Docker HEALTHCHECK probes 127.0.0.1.",
+              "threats": [
+                {
+                  "id": "t-daemon-dos",
+                  "number": 1,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Denial of service",
+                  "title": "One bad poll or slow platform delays announcements",
+                  "description": "check_platforms catches per-platform exceptions, but posting is sequential with sleeps (multi_video_delay default 120 s, platform_delay 2 s) and social.post has timeouts only inside hypeman_social (not read here). A stalled call delays later posts.",
+                  "mitigation": "UNVERIFIED: timeouts live in hypeman_social, not in this repo."
+                },
+                {
+                  "id": "t-health",
+                  "number": 2,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Health endpoint exposes post titles",
+                  "description": "main.py:initialize starts hypeman_social start_health_server on HEALTH_PORT; the comment says 127.0.0.1 and health.record_event('last_post', title) stores the last title. Binding is inside hypeman_social and was not read.",
+                  "mitigation": "UNVERIFIED: bind address is set in hypeman_social, not in this repo. Default is off (HEALTH_PORT unset)."
+                }
+              ]
+            },
+            "position": {
+              "x": 420,
+              "y": 300
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "p-yt",
+            "shape": "process",
+            "data": {
+              "name": "YouTube monitor",
+              "description": "media/youtube_videos.py: YouTubeVideosPlatform polls channels/playlistItems/videos with an API key, tracks last_video_id.",
+              "threats": [
+                {
+                  "id": "t-yt-key-log",
+                  "number": 3,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "YouTube API key may reach debug logs through exception text",
+                  "description": "_get_channel_id_from_username logs `{e}` at debug level for failed lookups. googleapiclient HttpError text normally includes the request URI, and the key is sent as a query parameter. Other handlers in the file log fixed strings only. Library behavior was not confirmed locally (package not installed).",
+                  "mitigation": "Partly mitigated: other handlers (_fetch_recent_uploads, get_video_by_id) log no exception text. Debug level is off by default (main.py logging.basicConfig INFO)."
+                },
+                {
+                  "id": "t-yt-trust",
+                  "number": 4,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "Unvalidated API fields flow into posts",
+                  "description": "video_id, title, description come from the API response and are placed in the post and URL f-string (_extract_video_info). The source is the operator's own channel on a Google API, so the exposure is a compromised channel, not an anonymous party.",
+                  "mitigation": "UNVERIFIED: no schema or length validation in this repo beyond description[:200]/[:300] slices in generator.py."
+                }
+              ]
+            },
+            "position": {
+              "x": 420,
+              "y": 140
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "p-tt",
+            "shape": "process",
+            "data": {
+              "name": "TikTok monitor (Playwright)",
+              "description": "media/tiktok.py: launches headless Chromium, loads the public profile page, reads post/item_list JSON by response interception, filters items by author uniqueId. media/tiktok_api.py (official API variant) is present but main.py imports only tiktok.py.",
+              "threats": [
+                {
+                  "id": "t-tt-browser",
+                  "number": 5,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Elevation of privilege",
+                  "title": "Headless browser renders untrusted remote pages",
+                  "description": "media/tiktok.py:_ensure_browser launches Chromium (default sandbox, no --no-sandbox flag found) and visits tiktok.com. A browser exploit in a rendered page would run as the container user (UID 1000, no root), but would reach the daemon's environment, which holds the social tokens.",
+                  "mitigation": "Partly mitigated: container runs as non-root (docker/Dockerfile USER 1000:1000). Chromium itself is installed by the operator via Playwright; image has no browser installed by default (Dockerfile installs no Playwright browsers), so the image path does not run TikTok scraping unless the operator adds it. Keep Playwright updated (Dependabot, requirements.txt hashes)."
+                },
+                {
+                  "id": "t-tt-spoof",
+                  "number": 6,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Spoofing",
+                  "title": "Scraped TikTok data is unauthenticated",
+                  "description": "handle_response keeps only items whose author.uniqueId matches the configured name, but the data comes from page network traffic without signature. TikTok-side manipulation would produce a wrong or attacker-chosen description announced as the operator's video. Video id is interpolated into the URL without validation.",
+                  "mitigation": "UNVERIFIED: no character check on item id before URL construction (tiktok.py:_get_latest_video_async)."
+                }
+              ]
+            },
+            "position": {
+              "x": 420,
+              "y": 500
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "p-llm",
+            "shape": "process",
+            "data": {
+              "name": "VideoPostGenerator (prompt builder and post filter)",
+              "description": "llm/generator.py builds prompts from video title, description and channel name, calls hypeman_social LLMManager, strips URLs and hashtags, applies hypeman_social apply_guardrails, appends the real URL. Also should_notify (fail-open filter) and generate_hashtags.",
+              "threats": [
+                {
+                  "id": "t-pi",
+                  "number": 7,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Prompt injection through video title or description",
+                  "description": "generator.py: title, description[:200/:300] and channel_name are interpolated straight into prompts (_build_notification_prompt, should_notify, generate_hashtags) with no delimiting or escaping. Text in a title/description can steer the model. Source is the channel owner's own metadata (YouTube, TikTok), not anonymous chat, so exploitation needs a compromised or malicious uploader account or a TikTok-side manipulation. Impact is a wrong or abusive public post or a suppressed announcement.",
+                  "mitigation": "Partial: URLs are stripped from model output and the real URL is appended afterward (generator.py:_strip_meta_text, generate_notification); output length and hashtag count are checked by hypeman_social apply_guardrails; platform char limits are set in _PLATFORM_LIMITS. Guardrail internals were not read."
+                },
+                {
+                  "id": "t-pi-out",
+                  "number": 8,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Model output posted publicly with limited checks",
+                  "description": "generate_notification returns the model text to social.post (main.py:notify_new_video). Checks seen in this repo: meta-text and URL stripping, hashtag stripping. Content moderation depends entirely on hypeman_social apply_guardrails.",
+                  "mitigation": "UNVERIFIED: apply_guardrails content rules are in hypeman_social (>=0.3.4,<0.4) and were not reviewed. Fallback to template when output is rejected (main.py:format_notification)."
+                },
+                {
+                  "id": "t-filter-open",
+                  "number": 9,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "Injection can suppress announcements via should_notify",
+                  "description": "should_notify matches the substring 'yes' in the reply, and is fail-open on empty or failed replies. Injected text could push a model to answer 'no' and drop an announcement; enable_filtering is off by default (get_bool_config default False).",
+                  "mitigation": "Default off; fails open on LLM failure (generator.py:should_notify)."
+                },
+                {
+                  "id": "t-llm-secret",
+                  "number": 10,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Secrets reaching the model",
+                  "description": "Prompts contain only title, description, channel name and platform names (generator.py); no config or secret value is interpolated. No tool use or file access is given to the model in this repo. Gemini API key is held by hypeman_social, not in the prompt.",
+                  "mitigation": "Prompt contents confirmed in generator.py; hypeman_social internals not reviewed."
+                }
+              ]
+            },
+            "position": {
+              "x": 780,
+              "y": 300
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "p-social",
+            "shape": "process",
+            "data": {
+              "name": "Social posters (Discord, Matrix, Bluesky, Mastodon)",
+              "description": "boon_tube_daemon/social/*.py are thin re-exports of hypeman_social platforms. Posting, auth and error handling live in hypeman_social. Credentials fetched through get_secret.",
+              "threats": [
+                {
+                  "id": "t-social-lib",
+                  "number": 11,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Core posting code is outside this repo",
+                  "description": "All outbound posting and credential use is in hypeman-social, pinned hash-locked at 0.3.4 (requirements.txt) with range >=0.3.4,<0.4 in requirements.in. A compromised or buggy release in range would hold every social token.",
+                  "mitigation": "Partial: requirements.txt is hash-locked and installed with --require-hashes (docker/Dockerfile); Dependabot; pip-audit in security.yml. Source of hypeman-social was not reviewed in this model."
+                },
+                {
+                  "id": "t-social-ratelimit",
+                  "number": 12,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Denial of service",
+                  "title": "Duplicate or repeated posts",
+                  "description": "State is advanced per video via mark_posted after notify_new_video (main.py:check_platforms), so a crash between post and save re-posts that video. TikTok last_video_id is memory-only (media/tiktok.py), so a restart does not repost but also loses tracking.",
+                  "mitigation": "Partial: YouTube state is persisted per video (youtube_videos.py:mark_posted)."
+                }
+              ]
+            },
+            "position": {
+              "x": 780,
+              "y": 520
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "p-oauth",
+            "shape": "process",
+            "data": {
+              "name": "TikTok OAuth helper (scripts/tiktok_oauth_web.py)",
+              "description": "Operator-run script: starts a local HTTP callback server, opens the TikTok authorize URL, exchanges the code for tokens and prints them with doppler commands.",
+              "threats": [
+                {
+                  "id": "t-oauth-state",
+                  "number": 13,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Spoofing",
+                  "title": "OAuth callback does not check the state value",
+                  "description": "scripts/tiktok_oauth_web.py: main generates state = secrets.token_urlsafe(32) and sends it, but CallbackHandler.do_GET reads only code/error and never compares state. Any client that can reach the callback port while the helper waits can supply a code (login CSRF). The server binds HTTPServer((\"\", port)), i.e. all interfaces, not loopback only. Window is short and the tool is an interactive one-off.",
+                  "mitigation": "Not mitigated. Error page HTML-escapes input (build_error_html, tested in tests/test_tiktok_oauth_web.py). Fix would be: compare state and bind 127.0.0.1."
+                },
+                {
+                  "id": "t-oauth-print",
+                  "number": 14,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Tokens printed to terminal and as shell commands",
+                  "description": "The helper prints access and refresh tokens and a `doppler secrets set KEY='value'` line, so values land in terminal scrollback and, if pasted, shell history. The official-API module (media/tiktok_api.py) is not wired into main.py.",
+                  "mitigation": "Not mitigated. Operator-run, local terminal only."
+                }
+              ]
+            },
+            "position": {
+              "x": 1200,
+              "y": 140
+            },
+            "size": {
+              "width": 180,
+              "height": 100
+            }
+          },
+          {
+            "id": "s-config",
+            "shape": "store",
+            "data": {
+              "name": "Configuration and secrets (.env, Doppler, AWS, Vault)",
+              "description": "utils/config.py and utils/secrets.py re-export hypeman_social config. Lookup order stated in utils/secrets.py: Doppler, AWS Secrets Manager, Vault, env/.env, default. .env is gitignored (.gitignore) and docker-compose mounts it via env_file.",
+              "threats": [
+                {
+                  "id": "t-secret-env",
+                  "number": 15,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Information disclosure",
+                  "title": "Secrets in plain environment or .env file",
+                  "description": "Docker compose uses env_file: .env, so tokens (YouTube key, Discord webhook, Bluesky/Mastodon/Matrix tokens, Gemini key) sit in the container environment and on host disk. Doppler/AWS/Vault are supported alternatives (utils/secrets.py).",
+                  "mitigation": "Partial: .env is gitignored; .gitleaks.toml present; Doppler/AWS/Vault supported; container non-root. Environment of the container is readable by anyone with Docker access on the host."
+                },
+                {
+                  "id": "t-secret-log",
+                  "number": 16,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Clear-text logging of secrets",
+                  "description": "Commit d96d8bd (security: fix all clear-text logging) removed sensitive values from log calls; exception handlers in media/*.py and main.py log fixed strings. Note main.py check_platforms uses logger.exception, which logs tracebacks.",
+                  "mitigation": "media/youtube_videos.py handlers log fixed messages (e.g. authenticate, _fetch_recent_uploads). Residual: see YouTube debug-log threat."
+                }
+              ]
+            },
+            "position": {
+              "x": 420,
+              "y": 700
+            },
+            "size": {
+              "width": 200,
+              "height": 100
+            }
+          },
+          {
+            "id": "s-state",
+            "shape": "store",
+            "data": {
+              "name": "State file (youtube_state.json)",
+              "description": "media/youtube_videos.py: writes last_video_id, channel_id, updated_at as JSON to Settings.state_dir (default /app/config, bind mount ./config) or the current directory. A sample file is committed in the repo root.",
+              "threats": [
+                {
+                  "id": "t-state-tamper",
+                  "number": 17,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "State file edit causes skipped or repeated announcements",
+                  "description": "_load_state trusts the JSON; channel_id is compared, last_video_id is not validated. Write needs access to the config volume. Failure to parse is caught and logged (_load_state). No integrity check.",
+                  "mitigation": "Not mitigated; requires host or volume write access."
+                }
+              ]
+            },
+            "position": {
+              "x": 420,
+              "y": 880
+            },
+            "size": {
+              "width": 200,
+              "height": 40
+            }
+          },
+          {
+            "id": "s-img",
+            "shape": "store",
+            "data": {
+              "name": "Container image (GHCR)",
+              "description": "ghcr.io/chiefgyk3d/boon-tube-daemon built from docker/Dockerfile (digest-pinned base python:3.14-slim, hash-checked pip install, pip removed after install, non-root user).",
+              "threats": [
+                {
+                  "id": "t-img-supply",
+                  "number": 18,
+                  "status": "Mitigated",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Tampered or retagged image / base image",
+                  "description": "Dockerfile pins the base by digest and installs with --require-hashes; release builds via GYST python-docker-release.yml (pinned by commit) and SECURITY.md documents cosign signature, SBOM and SLSA provenance verification; verify.yml checks the published image daily.",
+                  "mitigation": "docker/Dockerfile (FROM ...@sha256, pip --require-hashes); .github/workflows/release.yml and verify.yml pinned by commit SHA. docker-compose.yml pulls :latest by tag, not digest, so consumers must verify with cosign as SECURITY.md describes."
+                }
+              ]
+            },
+            "position": {
+              "x": 1200,
+              "y": 640
+            },
+            "size": {
+              "width": 180,
+              "height": 100
+            }
+          },
+          {
+            "id": "e-yt",
+            "shape": "process",
+            "data": {
+              "name": "YouTube Data API v3",
+              "description": "External. Queried with an API key over HTTPS through google-api-python-client. Returns channel, playlist and video metadata.",
+              "threats": [
+                {
+                  "id": "t-yt-quota",
+                  "number": 19,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Denial of service",
+                  "title": "API quota exhaustion",
+                  "description": "On quota errors the platform stops checks for one hour (youtube_videos.py:_check_quota_cooldown); consecutive_errors counted.",
+                  "mitigation": "youtube_videos.py:_fetch_recent_uploads sets quota_exceeded; _check_quota_cooldown skips polling."
+                }
+              ]
+            },
+            "position": {
+              "x": 80,
+              "y": 260
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "e-tt",
+            "shape": "process",
+            "data": {
+              "name": "TikTok (web pages / API)",
+              "description": "External. Public profile page fetched through Chromium; official API variant calls open.tiktokapis.com with a bearer token.",
+              "threats": []
+            },
+            "position": {
+              "x": 80,
+              "y": 500
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "e-soc",
+            "shape": "process",
+            "data": {
+              "name": "Social platforms",
+              "description": "External. Discord webhook, Matrix homeserver, Bluesky, Mastodon instance. Receive posts over HTTPS (inside hypeman_social).",
+              "threats": []
+            },
+            "position": {
+              "x": 80,
+              "y": 610
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "e-gem",
+            "shape": "process",
+            "data": {
+              "name": "Gemini API",
+              "description": "External. Used when LLM_PROVIDER=gemini or as fallback (LLM_FALLBACK_PROVIDER). Receives prompts containing video title/description.",
+              "threats": [
+                {
+                  "id": "t-gem-egress",
+                  "number": 20,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Video metadata sent to a third-party LLM",
+                  "description": "Prompts contain the title, description (<=300 chars) and channel name (generator.py). Content is already public on the channel; no secrets or private data are added. The operator chooses the provider.",
+                  "mitigation": "Not mitigated, accepted: content is public."
+                }
+              ]
+            },
+            "position": {
+              "x": 80,
+              "y": 820
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "e-ollama",
+            "shape": "process",
+            "data": {
+              "name": "Ollama server",
+              "description": "Operator-run local LLM host. Receives the same prompts as Gemini. UNVERIFIED: connection scheme, auth and exposure are set by LLM_OLLAMA_HOST in hypeman_social, not in this repo.",
+              "threats": [
+                {
+                  "id": "t-ollama-egress",
+                  "number": 21,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Prompts to an Ollama host over plain HTTP",
+                  "description": "UNVERIFIED: scheme and TLS depend on the operator's LLM_OLLAMA_HOST; Ollama has no authentication by default. Prompts hold only public video metadata.",
+                  "mitigation": "Not mitigated in this repo; operator network control."
+                },
+                {
+                  "id": "t-ollama-reach",
+                  "number": 22,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Elevation of privilege",
+                  "title": "Model host egress reach",
+                  "description": "The model has no tools in this repo (generator.py only calls generate). Reach of the Ollama host to the internet or lab network is not controlled by this code. UNVERIFIED for deployment.",
+                  "mitigation": "Not mitigated in this repo; deployment concern."
+                }
+              ]
+            },
+            "position": {
+              "x": 1200,
+              "y": 120
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "e-gh",
+            "shape": "process",
+            "data": {
+              "name": "GitHub repository and GYST workflows",
+              "description": "Public repo. ci.yml, release.yml, security.yml, verify.yml call ChiefGyk3D/git-your-ship-together workflows pinned by commit SHA (v1.24.0) with permissions: contents: read at top level and egress-policy: block.",
+              "threats": [
+                {
+                  "id": "t-ci-supply",
+                  "number": 23,
+                  "status": "Mitigated",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Malicious change via PR or compromised workflow dependency",
+                  "description": "Reusable workflows are pinned by commit SHA with a version comment; workflow-level permissions are contents: read; egress policy is block; hash-locked requirements; Dependabot (.github/dependabot.yml) and auto-merge workflow; CodeQL, pip-audit, Snyk via security.yml.",
+                  "mitigation": "ci.yml, release.yml, security.yml (uses ...@8fdb8d1 # v1.24.0, egress-policy: block). Residual: dependabot-auto-merge.yml merges bot PRs; its conditions were not reviewed here."
+                }
+              ]
+            },
+            "position": {
+              "x": 1200,
+              "y": 420
+            },
+            "size": {
+              "width": 180,
+              "height": 80
+            }
+          },
+          {
+            "id": "f1",
+            "shape": "flow",
+            "source": {
+              "cell": "a-creator"
+            },
+            "target": {
+              "cell": "e-yt"
+            },
+            "data": {
+              "name": "Publish video",
+              "description": "Uploader posts a video; title and description are free text.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f2",
+            "shape": "flow",
+            "source": {
+              "cell": "e-yt"
+            },
+            "target": {
+              "cell": "p-yt"
+            },
+            "data": {
+              "name": "Video metadata (HTTPS)",
+              "description": "googleapiclient responses carrying title, description, id, publishedAt.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f3",
+            "shape": "flow",
+            "source": {
+              "cell": "a-creator"
+            },
+            "target": {
+              "cell": "e-tt"
+            },
+            "data": {
+              "name": "Publish TikTok",
+              "description": "Uploader posts to TikTok.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f4",
+            "shape": "flow",
+            "source": {
+              "cell": "e-tt"
+            },
+            "target": {
+              "cell": "p-tt"
+            },
+            "data": {
+              "name": "Page and item_list JSON",
+              "description": "Chromium loads the public profile and response interception reads api/post/item_list (media/tiktok.py).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f5",
+            "shape": "flow",
+            "source": {
+              "cell": "p-yt"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "New video list",
+              "description": "check_for_new_videos returns video dicts (main.py:check_platforms).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f6",
+            "shape": "flow",
+            "source": {
+              "cell": "p-tt"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "New video",
+              "description": "check_for_new_video returns a video dict.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f7",
+            "shape": "flow",
+            "source": {
+              "cell": "p-daemon"
+            },
+            "target": {
+              "cell": "p-llm"
+            },
+            "data": {
+              "name": "Video data to prompt",
+              "description": "Title, description, channel name interpolated into prompts (generator.py).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f8",
+            "shape": "flow",
+            "source": {
+              "cell": "p-llm"
+            },
+            "target": {
+              "cell": "e-gem"
+            },
+            "data": {
+              "name": "Prompt to Gemini (HTTPS)",
+              "description": "Untrusted text crosses to a cloud model; reply returns as unvetted text.",
+              "threats": [
+                {
+                  "id": "t-f-gem",
+                  "number": 24,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Prompt content visible to the model provider",
+                  "description": "See Gemini threat; same content as the public video page.",
+                  "mitigation": "Accepted."
+                }
+              ]
+            }
+          },
+          {
+            "id": "f9",
+            "shape": "flow",
+            "source": {
+              "cell": "p-llm"
+            },
+            "target": {
+              "cell": "e-ollama"
+            },
+            "data": {
+              "name": "Prompt to Ollama",
+              "description": "Same prompt to the operator's local host. UNVERIFIED: transport is configured in hypeman_social.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f10",
+            "shape": "flow",
+            "source": {
+              "cell": "p-daemon"
+            },
+            "target": {
+              "cell": "p-social"
+            },
+            "data": {
+              "name": "Post message",
+              "description": "notify_new_video calls social.post(message, platform_name, stream_data).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f11",
+            "shape": "flow",
+            "source": {
+              "cell": "p-social"
+            },
+            "target": {
+              "cell": "e-soc"
+            },
+            "data": {
+              "name": "Post to platforms (HTTPS)",
+              "description": "Messages go to webhook, homeserver and instance APIs.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f12",
+            "shape": "flow",
+            "source": {
+              "cell": "e-soc"
+            },
+            "target": {
+              "cell": "a-audience"
+            },
+            "data": {
+              "name": "Public announcements",
+              "description": "Audience reads posts, including LLM-written text.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f13",
+            "shape": "flow",
+            "source": {
+              "cell": "s-config"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "Config and secrets",
+              "description": "load_config/get_secret read Doppler/AWS/Vault/env (utils/config.py).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f14",
+            "shape": "flow",
+            "source": {
+              "cell": "p-yt"
+            },
+            "target": {
+              "cell": "s-state"
+            },
+            "data": {
+              "name": "Persist last_video_id",
+              "description": "_save_state writes youtube_state.json.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f15",
+            "shape": "flow",
+            "source": {
+              "cell": "a-operator"
+            },
+            "target": {
+              "cell": "s-config"
+            },
+            "data": {
+              "name": "Edit .env / Doppler",
+              "description": "Operator manages configuration and secrets.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f16",
+            "shape": "flow",
+            "source": {
+              "cell": "a-operator"
+            },
+            "target": {
+              "cell": "p-oauth"
+            },
+            "data": {
+              "name": "Run OAuth helper",
+              "description": "Operator runs scripts/tiktok_oauth_web.py.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f17",
+            "shape": "flow",
+            "source": {
+              "cell": "a-contrib"
+            },
+            "target": {
+              "cell": "e-gh"
+            },
+            "data": {
+              "name": "PRs and dependency updates",
+              "description": "Contributor PRs and dependency releases enter CI.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f18",
+            "shape": "flow",
+            "source": {
+              "cell": "e-gh"
+            },
+            "target": {
+              "cell": "s-img"
+            },
+            "data": {
+              "name": "Build, sign, publish",
+              "description": "release.yml builds and publishes to GHCR with attestations.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f19",
+            "shape": "flow",
+            "source": {
+              "cell": "s-img"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "Pull and run image",
+              "description": "Operator runs the published image (docker-compose.yml).",
+              "threats": []
+            }
+          }
+        ]
+      }
+    ],
+    "threatTop": 24
+  }
+}
