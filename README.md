@@ -223,6 +223,31 @@ out with template messages. The Docker image's `HEALTHCHECK` probes
 `/healthz` automatically when `HEALTH_PORT` is set (and falls back to a
 process-liveness check when it isn't).
 
+## 🔐 Required Secrets
+
+A feature that needs a secret will not start without it. An empty value or a
+template placeholder (`YOUR_*`, `your_*`, `changeme*`, `xxx*`, `dp.st.your*`,
+`<...>`, `example`, `placeholder`, or a URL containing a `YOUR_*` segment,
+matched case-insensitively) is treated as unset. The log names the missing
+variable and never prints a value.
+
+| Secret | Needed by | Without it |
+|--------|-----------|------------|
+| `YOUTUBE_API_KEY` plus `YOUTUBE_USERNAME` or `YOUTUBE_CHANNEL_ID` | YouTube monitoring (`YOUTUBE_ENABLE_MONITORING=true`) | YouTube is not enabled. With no media platform enabled the daemon exits with an error. |
+| `TIKTOK_USERNAME` (plus `TIKTOK_CLIENT_KEY` and `TIKTOK_CLIENT_SECRET` for the official API) | TikTok monitoring | TikTok is not enabled. |
+| `DISCORD_WEBHOOK_URL` (or a per-platform `DISCORD_WEBHOOK_*`) | Discord posting | Discord is not enabled. |
+| `MATRIX_HOMESERVER`, `MATRIX_ROOM_ID`, and `MATRIX_ACCESS_TOKEN` or `MATRIX_USERNAME` with `MATRIX_PASSWORD` | Matrix posting | Matrix is not enabled. |
+| `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | Bluesky posting | Bluesky is not enabled. |
+| `MASTODON_API_BASE_URL`, `MASTODON_ACCESS_TOKEN` | Mastodon posting | Mastodon is not enabled. |
+| `LLM_GEMINI_API_KEY` or `GEMINI_API_KEY` | AI posts when the provider (or fallback provider) is `gemini` | The AI feature is disabled and posts use the template. |
+| `DOPPLER_TOKEN`, `SECRETS_VAULT_TOKEN` | Doppler or Vault lookups | The manager is skipped and values come from the environment. |
+
+Where to put them: an environment variable or `.env` file, Doppler
+(`doppler run -- python3 main.py` or `DOPPLER_TOKEN`), AWS Secrets Manager
+(`SECRETS_MANAGER=aws`), or HashiCorp Vault (`SECRETS_MANAGER=vault`). Social
+posting is optional, but at least one media platform must be enabled. The
+systemd installers refuse to run while `.env` still holds a placeholder.
+
 ## 📋 Requirements
 
 ### Core
