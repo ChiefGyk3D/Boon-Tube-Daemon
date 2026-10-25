@@ -5,7 +5,7 @@
 # here:
 #
 #   pip install uv
-#   uv pip compile requirements-dev.in --universal --generate-hashes --python-version 3.10 -o requirements-dev.txt
+#   uv pip compile requirements-dev.in --universal --generate-hashes --python-version 3.11 -o requirements-dev.txt
 #
 # pip enters hash-checking mode by itself when it reads requirements-dev.txt,
 # so `pip install -r requirements-dev.txt` verifies every download against the
