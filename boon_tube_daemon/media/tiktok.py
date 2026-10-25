@@ -11,7 +11,7 @@ Uses browser automation to intercept API calls and extract video data.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 from playwright.async_api import async_playwright
@@ -162,7 +162,7 @@ class TikTokPlatform(MediaPlatform):
                     "description": item.get("desc", ""),
                     "url": f"https://www.tiktok.com/@{author_id}/video/{video_id}",
                     "thumbnail_url": item.get("video", {}).get("cover", ""),
-                    "published_at": datetime.fromtimestamp(item.get("createTime", 0), tz=timezone.utc),
+                    "published_at": datetime.fromtimestamp(item.get("createTime", 0), tz=UTC),
                     "author": author_id,
                     "stats": {
                         "plays": item.get("stats", {}).get("playCount", 0),

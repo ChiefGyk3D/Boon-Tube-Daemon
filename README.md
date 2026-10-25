@@ -251,7 +251,7 @@ systemd installers refuse to run while `.env` still holds a placeholder.
 ## 📋 Requirements
 
 ### Core
-- Python 3.8+
+- Python 3.11+
 - YouTube Data API v3 key
 - **AI Provider (choose one):**
   - **Ollama** (recommended): Local LLM server, no API costs ([Setup Guide](docs/features/ollama-setup.md))

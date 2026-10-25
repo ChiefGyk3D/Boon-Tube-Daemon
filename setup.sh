@@ -195,16 +195,16 @@ local_install() {
     # Check Python version
     echo "🔍 Checking Python version..."
     if ! command -v python3 &> /dev/null; then
-        echo "❌ Python 3 is not installed. Please install Python 3.8 or higher."
+        echo "❌ Python 3 is not installed. Please install Python 3.11 or higher."
         exit 1
     fi
 
     PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
     echo "✓ Found Python $PYTHON_VERSION"
 
-    # Check if Python version is 3.8+
-    if ! python3 -c 'import sys; exit(0 if sys.version_info >= (3, 8) else 1)'; then
-        echo "❌ Python 3.8 or higher is required. Current version: $PYTHON_VERSION"
+    # Check if Python version is 3.11+
+    if ! python3 -c 'import sys; exit(0 if sys.version_info >= (3, 11) else 1)'; then
+        echo "❌ Python 3.11 or higher is required. Current version: $PYTHON_VERSION"
         exit 1
     fi
 
