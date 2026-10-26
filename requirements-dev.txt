@@ -14,9 +14,9 @@ anyio==4.15.1 \
     # via
     #   google-genai
     #   httpx
-atproto==0.0.72 \
-    --hash=sha256:239ca1c54cb4c878f625581b44abd1f0018b7b55419f7ca886468641ecb7fb09 \
-    --hash=sha256:eec904188b0beba165a7cc14ccc6a190b3ce061fecac4db3b9166e2500b02a41
+atproto==0.0.73 \
+    --hash=sha256:0dc0e7f60ce99113b3371528d368e47566b44344812c7b0047229eda8b07eb13 \
+    --hash=sha256:772dbef364788385724b1724434a42c56b9aeeec0e480c70f6b7edd7f65f1e77
     # via hypeman-social
 authlib==1.8.0 \
     --hash=sha256:88aebbd9af6757e14e912d5dc007ae1dc1f3e27e3b2152ce7c552ee2c3b3c121 \
@@ -1485,6 +1485,10 @@ tenacity==9.1.4 \
     # via
     #   google-genai
     #   safety
+tlds==2026093003 \
+    --hash=sha256:3cb9452b79f08957bf868d407d40625897ac3215d6bbe8b3fdd38dce753cd41e \
+    --hash=sha256:573e8eb20d9f5dcbaed6fdfc56f2fd6047e6fef6282af24147589e87700a32bb
+    # via atproto
 tomli==2.4.1 ; python_full_version <= '3.11' \
     --hash=sha256:01f520d4f53ef97964a240a035ec2a869fe1a37dde002b57ebc4417a27ccd853 \
     --hash=sha256:0d85819802132122da43cb86656f8d1f8c6587d54ae7dcaf30e90533028b49fe \
