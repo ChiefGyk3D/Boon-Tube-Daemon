@@ -12,8 +12,8 @@ google-auth-oauthlib==1.5.0
 google-auth-httplib2==0.4.4
 
 # Social Media Platforms
-Mastodon.py==2.2.2
-atproto==0.0.72  # Bluesky AT Protocol
+Mastodon.py==2.3.3
+atproto==0.0.73  # Bluesky AT Protocol
 
 # Text Processing
 grapheme==0.6.0  # Unicode grapheme cluster counting (for Bluesky 300-grapheme limit)
@@ -25,7 +25,7 @@ protobuf>=7.34.1,<8.0.0
 python-dotenv==1.2.4
 
 # LLM Integration
-google-genai>=2.31.0  # Google Gemini API (replaces deprecated google-generativeai)
+google-genai>=2.33.0  # Google Gemini API (replaces deprecated google-generativeai)
 ollama==0.6.3  # Ollama local LLM (optional, for privacy-first AI)
 
 # Secret Management (optional)
@@ -34,6 +34,6 @@ doppler-sdk==1.3.0  # Doppler SDK for Python
 # Development/Testing (for CI/CD)
 pytest>=8.0.0
 pytest-cov>=4.1.0
-ruff>=0.17.1
+ruff>=0.17.2
 bandit>=1.7.0
 safety>=3.0.0
