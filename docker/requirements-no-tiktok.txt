@@ -12,7 +12,7 @@ google-auth-oauthlib==1.5.0
 google-auth-httplib2==0.4.4
 
 # Social Media Platforms
-Mastodon.py==2.2.2
+Mastodon.py==2.3.3
 atproto==0.0.72  # Bluesky AT Protocol
 
 # Text Processing
