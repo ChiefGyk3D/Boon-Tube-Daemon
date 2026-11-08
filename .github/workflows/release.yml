@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   container:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-docker-release.yml@6f40107c2e05483f485452991e422f7f63886000 # v1.25.1
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-docker-release.yml@9d6825dd4e0e4d524fca3733f416437bbd7851e1 # v1.31.0
     permissions:
       contents: read
       packages: write
@@ -38,6 +38,11 @@ jobs:
     with:
       dockerfile: docker/Dockerfile
       push: ${{ github.event_name != 'pull_request' }}
+      # v1.31.0 publishes only from a tag push by default. This repository also
+      # publishes from a branch push, the weekly schedule and a manual run, so
+      # those events and non-tag refs stay allowed.
+      allowed-publish-events: push,schedule,workflow_dispatch
+      require-tag-ref: false
       docker-test-command: docker run --rm "$IMAGE" python -c "import boon_tube_daemon; print('Import successful')"
       timeout-minutes: 90
       egress-policy: block
