@@ -43,6 +43,8 @@ jobs:
       egress-policy: block
       allowed-publish-events: push,schedule,workflow_dispatch
       require-tag-ref: false
+      # Library example strings in site-packages (the anthropic SDK) match a secret rule; the CVE scan is unchanged.
+      skip-secret-scan-in-site-packages: true
       doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
