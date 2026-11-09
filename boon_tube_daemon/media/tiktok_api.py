@@ -11,7 +11,7 @@ API Documentation: https://developers.tiktok.com/doc/login-kit-web
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 
@@ -145,7 +145,7 @@ class TikTokAPIPlatform(MediaPlatform):
                 "description": latest_video.get("video_description", ""),
                 "url": f"https://www.tiktok.com/@{username_to_check}/video/{latest_video.get('id')}",
                 "thumbnail_url": latest_video.get("cover_image_url"),
-                "published_at": datetime.fromtimestamp(latest_video.get("create_time", 0), tz=timezone.utc),
+                "published_at": datetime.fromtimestamp(latest_video.get("create_time", 0), tz=UTC),
                 "author": username_to_check,
                 "stats": {
                     "plays": latest_video.get("view_count", 0),

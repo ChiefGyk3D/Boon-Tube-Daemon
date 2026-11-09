@@ -255,7 +255,7 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     
     # Detect Python command
     PYTHON_CMD=""
-    for py_cmd in python3.13 python3.12 python3.11 python3.10 python3; do
+    for py_cmd in python3.13 python3.12 python3.11 python3; do
         if command -v "$py_cmd" &> /dev/null; then
             PYTHON_CMD="$py_cmd"
             break
@@ -264,19 +264,19 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     
     if [ -z "$PYTHON_CMD" ]; then
         echo -e "${RED}ERROR: Python 3 not found!${NC}"
-        echo "Please install Python 3.10 or later"
+        echo "Please install Python 3.11 or later"
         exit 1
     fi
     
     PYTHON_VERSION=$($PYTHON_CMD --version)
     echo -e "${GREEN}✓${NC} Found Python: $PYTHON_VERSION ($PYTHON_CMD)"
     
-    # Check Python version (require 3.10+)
+    # Check Python version (require 3.11+)
     PYTHON_MAJOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.major)')
     PYTHON_MINOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.minor)')
     
-    if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
-        echo -e "${RED}ERROR: Python 3.10 or later required (found ${PYTHON_MAJOR}.${PYTHON_MINOR})${NC}"
+    if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+        echo -e "${RED}ERROR: Python 3.11 or later required (found ${PYTHON_MAJOR}.${PYTHON_MINOR})${NC}"
         exit 1
     fi
     
