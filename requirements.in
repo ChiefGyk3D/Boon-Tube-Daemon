@@ -43,3 +43,7 @@ python-dotenv==1.2.4
 # Secret Management (optional extras beyond Doppler)
 # AWS Secrets Manager: hypeman-social[aws]
 # HashiCorp Vault: hypeman-social[vault]
+
+# Security: dnspython 2.9.0 (first patched release) requires Python >= 3.11;
+# Python 3.10 stays on the newest release it can install.
+dnspython>=2.9.0; python_version >= "3.11"
