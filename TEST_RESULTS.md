@@ -77,9 +77,7 @@ User needs to:
 ## Code Quality
 
 ### Warnings
-- Python 3.10.12 deprecation warning from google.api_core (expected, non-critical)
-  - Python 3.10 reaches EOL in 2026-10-04
-  - Recommend upgrading to Python 3.11+ for long-term support
+- Python 3.10.12 deprecation warning from google.api_core (historical; Python 3.10 is no longer supported, the floor is 3.11)
 
 ### No Errors Detected
 - ✅ No syntax errors

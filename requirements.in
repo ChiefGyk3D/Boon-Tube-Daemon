@@ -2,7 +2,7 @@
 # dependency pinned and hashed; regenerate it after editing here:
 #
 #   pip install uv
-#   uv pip compile requirements.in --universal --generate-hashes --python-version 3.10 -o requirements.txt
+#   uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt
 #
 # pip enters hash-checking mode by itself when it reads requirements.txt, so
 # `pip install -r requirements.txt` verifies every download against the lock.
@@ -44,6 +44,5 @@ python-dotenv==1.2.4
 # AWS Secrets Manager: hypeman-social[aws]
 # HashiCorp Vault: hypeman-social[vault]
 
-# Security: dnspython 2.9.0 (first patched release) requires Python >= 3.11;
-# Python 3.10 stays on the newest release it can install.
-dnspython>=2.9.0; python_version >= "3.11"
+# Security: dnspython 2.9.0 is the first patched release (needs Python >= 3.11).
+dnspython>=2.9.0
