@@ -17,6 +17,6 @@
 # Development/Testing (for CI/CD)
 pytest==9.1.1
 pytest-cov==7.1.0
-ruff==0.17.2
+ruff==0.17.3
 bandit==1.9.4
 safety==3.8.1
