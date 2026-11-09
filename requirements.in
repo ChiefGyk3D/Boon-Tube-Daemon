@@ -43,3 +43,8 @@ python-dotenv==1.2.4
 # Secret Management (optional extras beyond Doppler)
 # AWS Secrets Manager: hypeman-social[aws]
 # HashiCorp Vault: hypeman-social[vault]
+
+# Security floors for transitive dependencies (known advisories).
+# dnspython 2.9.0 requires Python >= 3.11; Python 3.10 keeps 2.8.0, the newest it can install.
+dnspython>=2.9.0; python_version >= "3.11"
+pyasn1>=0.6.5
