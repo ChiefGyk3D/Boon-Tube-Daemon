@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   container:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-docker-release.yml@7501cb3fa19d83d0e0a131cb040e7c4da32a9504 # v1.28.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-docker-release.yml@01f397834f7acc553593abefbba135b18f580730 # v1.34.0
     permissions:
       contents: read
       packages: write
@@ -41,6 +41,10 @@ jobs:
       docker-test-command: docker run --rm "$IMAGE" python -c "import boon_tube_daemon; print('Import successful')"
       timeout-minutes: 90
       egress-policy: block
+      allowed-publish-events: push,schedule,workflow_dispatch
+      require-tag-ref: false
+      # Library example strings in site-packages (the anthropic SDK) match a secret rule; the CVE scan is unchanged.
+      skip-secret-scan-in-site-packages: true
       doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
