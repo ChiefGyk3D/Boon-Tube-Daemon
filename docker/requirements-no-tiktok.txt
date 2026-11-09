@@ -3,7 +3,7 @@
 
 # Core dependencies
 requests==2.34.2
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
 
 # YouTube API
 google-api-python-client==2.201.0
