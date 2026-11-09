@@ -251,7 +251,7 @@ systemd installers refuse to run while `.env` still holds a placeholder.
 ## 📋 Requirements
 
 ### Core
-- Python 3.8+
+- Python 3.11+
 - YouTube Data API v3 key
 - **AI Provider (choose one):**
   - **Ollama** (recommended): Local LLM server, no API costs ([Setup Guide](docs/features/ollama-setup.md))
@@ -376,13 +376,12 @@ add or bump a dependency, edit `requirements.in` and regenerate the lock with
 the command in its header; never edit `requirements.txt` by hand. Dependabot
 regenerates it for version bumps.
 
-The scan and test tools (`pytest`, `pytest-cov`, `ruff`, `bandit`, `safety`)
+The scan and test tools (`pytest`, `pytest-cov`, `ruff`, `bandit`)
 live in `requirements-dev.in`, which pulls `requirements.in` in and compiles to
 `requirements-dev.txt` the same way. CI installs the dev lock; the Docker image
 installs the runtime lock only, so the image carries neither the scanners nor
-what they drag in with them. That is what keeps `safety`'s dependency `nltk`,
-which nothing here calls, out of the shipped image entirely rather than
-carrying it as a named risk exception.
+what they drag in with them. Dependency advisories are checked by pip-audit in
+the Security workflow. Python 3.11 or newer is required.
 
 ## 📜 Legal
 

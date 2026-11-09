@@ -36,4 +36,3 @@ pytest>=8.0.0
 pytest-cov>=4.1.0
 ruff>=0.17.2
 bandit>=1.7.0
-safety>=3.0.0
