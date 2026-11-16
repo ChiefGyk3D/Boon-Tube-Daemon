@@ -24,6 +24,10 @@
 # beautifulsoup4; [doppler] pulls the Doppler SDK.
 hypeman-social[all,doppler]>=0.4.0,<0.5
 
+# GHSA-mf5v-w3w3-f6cg: opentelemetry-api (pulled in transitively) has a fix in
+# 1.45.2; pinned explicitly so the floor doesn't depend on whatever resolves.
+opentelemetry-api>=1.45.2
+
 # Core dependencies
 requests==2.34.2
 python-dateutil==2.9.0.post0
