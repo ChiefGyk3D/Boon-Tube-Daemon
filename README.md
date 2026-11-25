@@ -412,6 +412,12 @@ This project is licensed under the MPL-2.0, which allows you to use, modify, and
 
 If you find Boon-Tube-Daemon useful, consider supporting development:
 
+<div align="center">
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A4E59UP)
+
+</div>
+
 **Donate**:
 
 <div align="center">
